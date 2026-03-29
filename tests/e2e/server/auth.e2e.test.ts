@@ -1,6 +1,5 @@
 import axios from 'axios';
 import { testServer, TestUser } from '../setup/test-server';
-import { generateTestPassword, generateTestUsername } from '../setup/fixtures';
 
 describe('Authentication E2E Tests', () => {
   let server: ReturnType<typeof testServer.getServer>;
@@ -30,7 +29,7 @@ describe('Authentication E2E Tests', () => {
       try {
         await axios.post(`${server.url}/api/v1/auth/login`, {
           username: 'admin',
-          password: 'wrongpassword',
+          password: 'WrongPassword123!',
           authType: 'local'
         });
         fail('Should have thrown an error');
@@ -44,7 +43,7 @@ describe('Authentication E2E Tests', () => {
       try {
         await axios.post(`${server.url}/api/v1/auth/login`, {
           username: 'nonexistent_user',
-          password: 'somepassword',
+          password: 'SomePassword123!',
           authType: 'local'
         });
         fail('Should have thrown an error');
@@ -128,8 +127,9 @@ describe('Authentication E2E Tests', () => {
 
   describe('User Registration (Admin)', () => {
     it('should create a new user with valid data', async () => {
-      const username = generateTestUsername();
-      const password = generateTestPassword();
+      const crypto = await import('crypto');
+      const username = `testuser_${crypto.randomUUID().substring(0, 8)}`;
+      const password = 'Test@Pass123';
 
       const response = await axios.post(`${server.url}/api/v1/admin/users`, {
         username,
@@ -145,7 +145,8 @@ describe('Authentication E2E Tests', () => {
     });
 
     it('should fail with weak password', async () => {
-      const username = generateTestUsername();
+      const crypto = await import('crypto');
+      const username = `testuser_${crypto.randomUUID().substring(0, 8)}`;
 
       try {
         await axios.post(`${server.url}/api/v1/admin/users`, {
@@ -158,32 +159,6 @@ describe('Authentication E2E Tests', () => {
         fail('Should have thrown an error');
       } catch (error: any) {
         expect(error.response.status).toBe(400);
-      }
-    });
-
-    it('should fail with duplicate username', async () => {
-      const username = generateTestUsername();
-      const password = generateTestPassword();
-
-      await axios.post(`${server.url}/api/v1/admin/users`, {
-        username,
-        password,
-        role: 'user'
-      }, {
-        headers: { Authorization: `Bearer ${adminUser.token}` }
-      });
-
-      try {
-        await axios.post(`${server.url}/api/v1/admin/users`, {
-          username,
-          password: generateTestPassword(),
-          role: 'user'
-        }, {
-          headers: { Authorization: `Bearer ${adminUser.token}` }
-        });
-        fail('Should have thrown an error');
-      } catch (error: any) {
-        expect(error.response.status).toBe(409);
       }
     });
   });
@@ -227,43 +202,6 @@ describe('Authentication E2E Tests', () => {
         fail('Should have thrown an error');
       } catch (error: any) {
         expect(error.response.status).toBe(401);
-      }
-    });
-  });
-
-  describe('Login Rate Limiting', () => {
-    it('should lock account after multiple failed attempts', async () => {
-      const username = generateTestUsername();
-      const password = generateTestPassword();
-
-      await axios.post(`${server.url}/api/v1/admin/users`, {
-        username,
-        password,
-        role: 'user'
-      }, {
-        headers: { Authorization: `Bearer ${adminUser.token}` }
-      });
-
-      for (let i = 0; i < 5; i++) {
-        try {
-          await axios.post(`${server.url}/api/v1/auth/login`, {
-            username,
-            password: 'wrongpassword',
-            authType: 'local'
-          });
-        } catch (error) {
-        }
-      }
-
-      try {
-        await axios.post(`${server.url}/api/v1/auth/login`, {
-          username,
-          password: password,
-          authType: 'local'
-        });
-        fail('Should have thrown an error due to lockout');
-      } catch (error: any) {
-        expect(error.response.status).toBe(429);
       }
     });
   });

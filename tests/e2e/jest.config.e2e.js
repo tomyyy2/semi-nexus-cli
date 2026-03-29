@@ -1,5 +1,5 @@
 module.exports = {
-  rootDir: '../',
+  rootDir: '../../',
   testMatch: ['**/tests/e2e/**/*.e2e.test.ts'],
   testTimeout: 60000,
   setupFilesAfterEnv: ['<rootDir>/tests/e2e/setup/jest.setup.ts'],

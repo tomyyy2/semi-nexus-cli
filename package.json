@@ -27,9 +27,19 @@
   "pkg": {
     "scripts": "dist/**/*.js",
     "assets": "package.json",
-    "targets": ["node18-linux-x64", "node18-win-x64", "node18-macos-x64"]
+    "targets": [
+      "node18-linux-x64",
+      "node18-win-x64",
+      "node18-macos-x64"
+    ]
   },
-  "keywords": ["cli", "skill", "agent", "mcp", "capability-hub"],
+  "keywords": [
+    "cli",
+    "skill",
+    "agent",
+    "mcp",
+    "capability-hub"
+  ],
   "author": "SemiNexus Team",
   "license": "MIT",
   "dependencies": {
@@ -44,12 +54,13 @@
   },
   "devDependencies": {
     "@jest/globals": "^29.7.0",
-    "@types/jest": "^29.5.12",
     "@types/crypto-js": "^4.2.2",
     "@types/fs-extra": "^11.0.4",
     "@types/inquirer": "^9.0.7",
+    "@types/jest": "^29.5.12",
     "@types/node": "^20.11.19",
     "@types/semver": "^7.5.6",
+    "@types/uuid": "^10.0.0",
     "@typescript-eslint/eslint-plugin": "^7.0.2",
     "@typescript-eslint/parser": "^7.0.2",
     "eslint": "^8.56.0",
@@ -57,7 +68,8 @@
     "pkg": "^5.8.1",
     "ts-jest": "^29.1.2",
     "ts-node": "^10.9.2",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "uuid": "^13.0.0"
   },
   "engines": {
     "node": ">=18.0.0"

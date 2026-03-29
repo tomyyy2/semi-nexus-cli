@@ -1,18 +1,7 @@
-import { spawn, ChildProcess } from 'child_process';
-import path from 'path';
-import fs from 'fs-extra';
-import os from 'os';
 import axios from 'axios';
-import { v4 as uuidv4 } from 'uuid';
 
-export interface TestServer {
-  url: string;
-  port: number;
-  process: ChildProcess | null;
-  dataDir: string;
-  jwtSecret: string;
-  adminPassword: string;
-}
+const SERVER_URL = process.env.E2E_SERVER_URL || 'http://localhost:3000';
+const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD || 'Test@Admin123';
 
 export interface TestUser {
   id: string;
@@ -24,114 +13,66 @@ export interface TestUser {
 }
 
 export class TestServerManager {
-  private server: TestServer | null = null;
-  private serverPath: string;
+  private serverUrl: string;
+  private adminPassword: string;
 
   constructor() {
-    this.serverPath = path.join(__dirname, '../../../server');
+    this.serverUrl = SERVER_URL;
+    this.adminPassword = ADMIN_PASSWORD;
   }
 
-  async start(): Promise<TestServer> {
-    if (this.server) {
-      return this.server;
-    }
-
-    const port = 3000 + Math.floor(Math.random() * 1000);
-    const dataDir = path.join(os.tmpdir(), `semi-nexus-test-${uuidv4()}`);
-    const jwtSecret = `test-jwt-secret-${uuidv4()}`;
-    const adminPassword = `Admin@${uuidv4().substring(0, 8)}`;
-
-    await fs.ensureDir(dataDir);
-
-    const env = {
-      ...process.env,
-      NODE_ENV: 'test',
-      PORT: String(port),
-      JWT_SECRET: jwtSecret,
-      ADMIN_PASSWORD: adminPassword,
-      SEMI_NEXUS_DATA_DIR: dataDir
-    };
-
-    const serverProcess = spawn('node', ['dist/index.js'], {
-      cwd: this.serverPath,
-      env,
-      stdio: ['ignore', 'pipe', 'pipe']
-    });
-
-    this.server = {
-      url: `http://localhost:${port}`,
-      port,
-      process: serverProcess,
-      dataDir,
-      jwtSecret,
-      adminPassword
-    };
-
-    await this.waitForReady();
-
-    return this.server;
-  }
-
-  private async waitForReady(): Promise<void> {
-    if (!this.server) throw new Error('Server not started');
-
-    const maxAttempts = 30;
-    for (let i = 0; i < maxAttempts; i++) {
-      try {
-        await axios.get(`${this.server.url}/health`);
-        return;
-      } catch {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+  async start(): Promise<{ url: string; port: number; dataDir: string; jwtSecret: string; adminPassword: string }> {
+    try {
+      const response = await axios.get(`${this.serverUrl}/health`);
+      if (response.data.status !== 'ok') {
+        throw new Error('Server health check failed');
       }
+    } catch (error) {
+      throw new Error(`Server not available at ${this.serverUrl}. Please start the server first.`);
     }
 
-    throw new Error('Server failed to start within timeout');
+    return {
+      url: this.serverUrl,
+      port: 3000,
+      dataDir: '/tmp/test',
+      jwtSecret: 'test',
+      adminPassword: this.adminPassword
+    };
   }
 
   async stop(): Promise<void> {
-    if (!this.server) return;
-
-    if (this.server.process) {
-      this.server.process.kill('SIGTERM');
-      await new Promise(resolve => {
-        this.server!.process!.on('exit', resolve);
-        setTimeout(resolve, 5000);
-      });
-    }
-
-    if (this.server.dataDir) {
-      await fs.remove(this.server.dataDir);
-    }
-
-    this.server = null;
   }
 
-  getServer(): TestServer {
-    if (!this.server) throw new Error('Server not started');
-    return this.server;
+  getServer(): { url: string; adminPassword: string } {
+    return {
+      url: this.serverUrl,
+      adminPassword: this.adminPassword
+    };
   }
 
   async createTestUser(role: 'admin' | 'user' = 'user'): Promise<TestUser> {
-    const server = this.getServer();
-    const username = `test_${role}_${uuidv4().substring(0, 8)}`;
-    const password = `Test@${uuidv4().substring(0, 8)}Pass`;
+    const crypto = await import('crypto');
+    const username = `test_${role}_${crypto.randomUUID().substring(0, 8)}`;
+    const password = `Test@${crypto.randomUUID().substring(0, 8)}Pass`;
 
-    await axios.post(`${server.url}/api/v1/admin/users`, {
+    const adminToken = await this.getAdminToken();
+
+    await axios.post(`${this.serverUrl}/api/v1/admin/users`, {
       username,
       password,
       role
     }, {
-      headers: { 'X-Admin-Password': server.adminPassword }
+      headers: { Authorization: `Bearer ${adminToken}` }
     });
 
-    const loginResponse = await axios.post(`${server.url}/api/v1/auth/login`, {
+    const loginResponse = await axios.post(`${this.serverUrl}/api/v1/auth/login`, {
       username,
       password,
       authType: 'local'
     });
 
     return {
-      id: loginResponse.data.user.id,
+      id: loginResponse.data.user?.id || `user_${username}`,
       username,
       password,
       role,
@@ -140,19 +81,26 @@ export class TestServerManager {
     };
   }
 
-  async loginAdmin(): Promise<TestUser> {
-    const server = this.getServer();
-    
-    const loginResponse = await axios.post(`${server.url}/api/v1/auth/login`, {
+  private async getAdminToken(): Promise<string> {
+    const loginResponse = await axios.post(`${this.serverUrl}/api/v1/auth/login`, {
       username: 'admin',
-      password: server.adminPassword,
+      password: this.adminPassword,
+      authType: 'local'
+    });
+    return loginResponse.data.accessToken;
+  }
+
+  async loginAdmin(): Promise<TestUser> {
+    const loginResponse = await axios.post(`${this.serverUrl}/api/v1/auth/login`, {
+      username: 'admin',
+      password: this.adminPassword,
       authType: 'local'
     });
 
     return {
       id: 'admin',
       username: 'admin',
-      password: server.adminPassword,
+      password: this.adminPassword,
       role: 'admin',
       token: loginResponse.data.accessToken,
       refreshToken: loginResponse.data.refreshToken

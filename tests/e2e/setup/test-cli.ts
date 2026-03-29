@@ -2,7 +2,7 @@ import { spawn, ChildProcess, execSync } from 'child_process';
 import path from 'path';
 import fs from 'fs-extra';
 import os from 'os';
-import { v4 as uuidv4 } from 'uuid';
+import crypto from 'crypto';
 
 export interface TestCli {
   configDir: string;
@@ -22,7 +22,7 @@ export class TestCliManager {
       return this.cli;
     }
 
-    const configDir = path.join(os.tmpdir(), `semi-nexus-cli-test-${uuidv4()}`);
+    const configDir = path.join(os.tmpdir(), `semi-nexus-cli-test-${crypto.randomUUID()}`);
     await fs.ensureDir(configDir);
 
     this.cli = {
