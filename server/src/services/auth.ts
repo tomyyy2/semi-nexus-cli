@@ -320,6 +320,14 @@ export class AuthService {
     };
   }
 
+  generateTokensForUser(userId: string): AuthToken {
+    const user = this.users.get(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+    return this.generateTokens(user);
+  }
+
   verifyToken(token: string): TokenPayload {
     try {
       const payload = jwt.verify(token, this.jwtSecret) as TokenPayload;
