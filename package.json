@@ -9,12 +9,22 @@
   },
   "scripts": {
     "build": "tsc",
+    "build:bin": "npm run build && pkg . --targets node18-linux-x64,node18-win-x64,node18-macos-x64 --output dist/",
+    "build:linux": "npm run build && pkg . --targets node18-linux-x64 --output dist/semi-nexus-linux",
+    "build:win": "npm run build && pkg . --targets node18-win-x64 --output dist/semi-nexus-win.exe",
+    "build:mac": "npm run build && pkg . --targets node18-macos-x64 --output dist/semi-nexus-macos",
+    "build:all": "npm run build && pkg . --targets node18-linux-x64,node18-win-x64,node18-macos-x64 --output dist/",
     "watch": "tsc --watch",
     "dev": "ts-node src/index.ts",
     "test": "jest",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit",
     "prepare": "npm run build"
+  },
+  "pkg": {
+    "scripts": "dist/**/*.js",
+    "assets": "package.json",
+    "targets": ["node18-linux-x64", "node18-win-x64", "node18-macos-x64"]
   },
   "keywords": ["cli", "skill", "agent", "mcp", "capability-hub"],
   "author": "SemiNexus Team",
@@ -41,6 +51,7 @@
     "@typescript-eslint/parser": "^7.0.2",
     "eslint": "^8.56.0",
     "jest": "^29.7.0",
+    "pkg": "^5.8.1",
     "ts-jest": "^29.1.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3"

@@ -2,113 +2,69 @@
 
 **纯命令行的 Agent 能力中转工具** - 支持离线用户通过 Server 中转获取互联网上的能力。
 
-## 项目结构
+## 下载安装 (无需 Node.js)
 
+### 直接下载可执行文件
+
+| 平台 | 下载地址 | 命令 |
+|------|---------|------|
+| Linux x64 | [semi-nexus-linux](packaging/bin/semi-nexus-linux) | `curl -fsSL url -o semi-nexus && chmod +x semi-nexus` |
+| Windows x64 | [semi-nexus-win.exe](packaging/bin/semi-nexus-win.exe) | 直接下载运行 |
+| macOS x64 | [semi-nexus-macos](packaging/bin/semi-nexus-macos) | `curl -fsSL url -o semi-nexus && chmod +x semi-nexus` |
+
+### 构建自己的 bin
+
+```bash
+# 克隆
+git clone https://github.com/tomyyy2/semi-nexus-cli.git
+cd semi-nexus-cli
+
+# 构建所有平台
+./scripts/build-bin.sh 0.1.0
+
+# 或分别构建
+npm install pkg --save-dev
+pkg . --targets node18-linux-x64 --output semi-nexus
 ```
-semi-nexus-cli/
-├── server/               # Server 端
-├── src/                  # CLI 端
-├── scripts/             # 构建脚本
-├── packaging/           # 打包配置
-├── docs/               # 文档
-└── docker-compose.yml   # Docker 部署
-```
-
-## 组件
-
-### 1. CLI 工具 (src/)
-
-纯命令行工具，用于用户和管理员。
-
-### 2. Server 端 (server/)
-
-服务端组件，提供 API 和管理功能。
 
 ## 快速开始
 
-### 1. 启动 Server
-
 ```bash
-cd server
-npm install
-npm run dev
+# 初始化
+./semi-nexus init --server http://your-server:3000
+
+# 登录
+./semi-nexus login
+
+# 搜索
+./semi-nexus search "rtl"
+
+# 订阅
+./semi-nexus subscribe rtl-review-copilot
+
+# 安装
+./semi-nexus install rtl-review-copilot
+
+# 同步到 Agent
+./semi-nexus sync
 ```
 
-默认管理员: `admin` / `admin123`
+## Server 部署
 
-### 2. 配置 CLI
-
-```bash
-npm install -g .
-semi-nexus init --server http://localhost:3000
-semi-nexus login
-```
-
-## 部署方式
-
-### Docker Compose (推荐)
+### Docker (推荐)
 
 ```bash
-# 启动 Server
 docker-compose up -d
-
-# 查看日志
-docker-compose logs -f
 ```
 
-### RPM 包 (RedHat/CentOS)
+### RPM/DEB
 
 ```bash
+# RPM
 sudo rpm -ivh semi-nexus-server-0.1.0-1.el8.x86_64.rpm
-sudo systemctl enable semi-nexus-server
-sudo systemctl start semi-nexus-server
-```
 
-### DEB 包 (Debian/Ubuntu)
-
-```bash
+# DEB
 sudo dpkg -i semi-nexus-server_0.1.0_amd64.deb
-sudo apt-get install -f
-sudo systemctl enable semi-nexus-server
-sudo systemctl start semi-nexus-server
-```
-
-### 手动安装
-
-```bash
-curl -fsSL https://github.com/tomyyy2/semi-nexus-cli/releases/latest -o semi-nexus-server.tar.gz
-tar -xzf semi-nexus-server.tar.gz
-cd semi-nexus-server
-sudo cp -r . /opt/semi-nexus-server
-sudo ln -s /opt/semi-nexus-server/bin/semi-nexus-server /usr/local/bin/
-sudo cp semi-nexus-server.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable semi-nexus-server
-sudo systemctl start semi-nexus-server
-```
-
-## 架构
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      企业内网环境                            │
-│                                                             │
-│  ┌─────────────────────────────────────────────────────┐  │
-│  │              SemiNexus Server                         │  │
-│  │  • Auth (本地/LDAP/AD/API Key)                      │  │
-│  │  • Registry (能力注册表)                             │  │
-│  │  • Scanner (安全扫描)                               │  │
-│  │  • Audit (审计日志)                                 │  │
-│  └─────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-                           │
-        ┌──────────────────┼──────────────────┐
-        │                  │                  │
-        ▼                  ▼                  ▼
-  ┌───────────┐      ┌───────────┐      ┌───────────┐
-  │ 离线用户  │      │ 在线用户  │      │  管理员   │
-  │ CLI       │      │ CLI       │      │ CLI       │
-  └───────────┘      └───────────┘      └───────────┘
 ```
 
 ## CLI 命令
@@ -123,45 +79,46 @@ sudo systemctl start semi-nexus-server
 | `sync` | 同步到 Agent |
 | `list` | 列出已安装 |
 
-## Server API
+## 架构
 
-| 端点 | 功能 |
-|------|------|
-| `POST /api/v1/auth/login` | 登录 |
-| `POST /api/v1/auth/apikey` | 创建 API Key |
-| `GET /api/v1/capabilities` | 搜索能力 |
-| `POST /api/v1/capabilities/:id/subscribe` | 订阅 |
-| `POST /api/v1/admin/capabilities/:id/scan` | 安全扫描 |
-| `POST /api/v1/admin/capabilities/:id/approve` | 审核发布 |
-
-## 构建
-
-```bash
-# CLI 包
-./scripts/build-cli-packages.sh 0.1.0
-
-# Server 包
-./scripts/build-packages.sh 0.1.0
-
-# Docker 镜像
-docker build -t semi-nexus-server -f server/Dockerfile server/
-docker build -t semi-nexus-cli -f Dockerfile.cli .
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      企业内网环境                            │
+│                                                             │
+│  ┌─────────────────────────────────────────────────────┐  │
+│  │              SemiNexus Server                         │  │
+│  │  • Auth (本地/LDAP/AD/API Key)                      │  │
+│  │  • Registry (能力注册表)                             │  │
+│  └─────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                           │
+        ┌──────────────────┼──────────────────┐
+        │                  │                  │
+        ▼                  ▼                  ▼
+  ┌───────────┐      ┌───────────┐      ┌───────────┐
+  │ 离线用户  │      │ 在线用户  │      │  管理员   │
+  └───────────┘      └───────────┘      └───────────┘
 ```
 
-## 测试
+## 项目结构
+
+```
+semi-nexus-cli/
+├── server/               # Server 端
+├── src/                  # CLI 源码
+├── scripts/              # 构建脚本
+│   └── build-bin.sh     # 打包成独立 bin
+├── packaging/           # 打包输出
+│   └── bin/            # 可执行文件
+└── docs/               # 文档
+```
+
+## 开发
 
 ```bash
-# CLI 测试
+npm install
 npm test
-
-# Server 测试
-cd server && npm test
 ```
-
-## 文档
-
-- [部署指南](./docs/deployment.md)
-- [CLI 设计](./docs/design.md)
 
 ## License
 
