@@ -56,7 +56,7 @@ router.post('/logout', authenticate, (req: Request, res: Response) => {
   res.json({ message: 'Logged out successfully' });
 });
 
-router.post('/apikey', authenticate, async (req: Request, res: Response) => {
+router.post('/api-keys', authenticate, async (req: Request, res: Response) => {
   try {
     const { name, expiresIn } = req.body;
 
@@ -73,13 +73,13 @@ router.post('/apikey', authenticate, async (req: Request, res: Response) => {
 
     auditService.log(req.user!.id, 'create_apikey', 'apikey', keyId, { name }, req.ip);
 
-    res.json({ apiKey, keyId, name, createdAt: new Date().toISOString() });
+    res.status(201).json({ apiKey, keyId, name, createdAt: new Date().toISOString() });
   } catch (error) {
     res.status(500).json({ error: (error as Error).message });
   }
 });
 
-router.get('/apikey', authenticate, (req: Request, res: Response) => {
+router.get('/api-keys', authenticate, (req: Request, res: Response) => {
   const keys = authService.listApiKeys(req.user!.id);
   res.json(keys.map(k => ({
     id: k.id,
@@ -91,7 +91,7 @@ router.get('/apikey', authenticate, (req: Request, res: Response) => {
   })));
 });
 
-router.delete('/apikey/:id', authenticate, (req: Request, res: Response) => {
+router.delete('/api-keys/:id', authenticate, (req: Request, res: Response) => {
   const { id } = req.params;
   authService.revokeApiKey(req.user!.id, id);
   auditService.log(req.user!.id, 'revoke_apikey', 'apikey', id, undefined, req.ip);

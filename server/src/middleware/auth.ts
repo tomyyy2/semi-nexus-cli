@@ -13,7 +13,7 @@ declare global {
 
 export function authenticate(req: Request, res: Response, next: NextFunction): void {
   const authHeader = req.headers.authorization;
-  const apiKey = req.headers['x-api-key'] as string;
+  const apiKey = req.headers['x-api-key'] as string || req.headers['X-Api-Key'] as string;
 
   try {
     if (apiKey) {
