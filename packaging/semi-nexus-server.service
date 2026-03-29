@@ -1,0 +1,24 @@
+[Unit]
+Description=SemiNexus Server - Agent Capability Hub
+After=network.target
+
+[Service]
+Type=simple
+User=semi-nexus
+Group=semi-nexus
+WorkingDirectory=/opt/semi-nexus-server
+ExecStart=/opt/semi-nexus-server/bin/semi-nexus-server
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=HOST=0.0.0.0
+Environment=DATA_DIR=/data/semi-nexus
+
+ReadWritePaths=/data/semi-nexus
+
+[Install]
+WantedBy=multi-user.target
