@@ -148,6 +148,30 @@ export class LocalRegistry {
     return sub?.status === 'active';
   }
 
+  async markSubscribed(sub: { capabilityId: string; capabilityName: string; version: string; subscribedAt: string; status: string }): Promise<void> {
+    await this.ensureDir();
+
+    const subscriptions = await this.getSubscriptions();
+    const existing = subscriptions.findIndex(s => s.capabilityId === sub.capabilityId);
+
+    const subscription: Subscription = {
+      id: `sub_${Date.now()}`,
+      capabilityId: sub.capabilityId,
+      version: sub.version,
+      subscribedAt: sub.subscribedAt,
+      expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+      status: 'active'
+    };
+
+    if (existing >= 0) {
+      subscriptions[existing] = subscription;
+    } else {
+      subscriptions.push(subscription);
+    }
+
+    await this.saveSubscriptions(subscriptions);
+  }
+
   async getInstalled(): Promise<InstalledCapability[]> {
     try {
       if (await fs.pathExists(this.installedFile)) {

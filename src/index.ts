@@ -14,6 +14,10 @@ import { upgrade } from './commands/upgrade';
 import { uninstall } from './commands/uninstall';
 import { info } from './commands/info';
 import { status } from './commands/status';
+import { quickstart } from './commands/quickstart';
+import { discover } from './commands/discover';
+import { verify } from './commands/verify';
+import { completion } from './commands/completion';
 
 const program = new Command();
 
@@ -29,6 +33,16 @@ program
   .option('-s, --server <url>', 'Server URL')
   .option('-f, --force', 'Force reinitialization')
   .action(init);
+
+program
+  .command('quickstart')
+  .description('Interactive quick start guide')
+  .action(quickstart);
+
+program
+  .command('discover')
+  .description('Discover and browse capabilities')
+  .action(discover);
 
 program
   .command('login')
@@ -67,13 +81,17 @@ program
   .description('Install a capability')
   .option('-v, --version <version>', 'Specific version')
   .option('-f, --force', 'Force reinstall')
+  .option('-a, --auto-subscribe', 'Auto-subscribe if not subscribed')
+  .option('-s, --sync', 'Sync to Agents after install')
   .action(install);
 
 program
   .command('sync')
-  .description('Sync to Agent environments')
+  .description('Sync capabilities to Agent environments')
   .option('-t, --to <agent>', 'Sync to specific agent')
-  .option('-m, --mode <mode>', 'Sync mode (symlink or copy)')
+  .option('-m, --mode <mode>', 'Sync mode: symlink or copy')
+  .option('-c, --configure', 'Auto-configure agents (OpenClaw)')
+  .option('-s, --status', 'Show sync status')
   .action(sync);
 
 program
@@ -107,5 +125,16 @@ program
   .command('status')
   .description('Show connection status')
   .action(status);
+
+program
+  .command('verify <name>')
+  .description('Verify capability installation')
+  .action(verify);
+
+program
+  .command('completion [shell]')
+  .description('Generate shell completion script')
+  .option('-i, --install', 'Install completion script')
+  .action(completion);
 
 program.parse(process.argv);
