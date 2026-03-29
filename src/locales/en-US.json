@@ -1,0 +1,97 @@
+{
+  "common": {
+    "success": "Success",
+    "failed": "Failed",
+    "error": "Error",
+    "warning": "Warning",
+    "info": "Info",
+    "loading": "Loading...",
+    "done": "Done",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "quickstart": {
+    "welcome": "Welcome to SemiNexus CLI!",
+    "letsStart": "Let's get you started...",
+    "connecting": "Connecting to server...",
+    "connected": "Connected to server",
+    "loginMethod": "Login method",
+    "apiKey": "API Key",
+    "usernamePassword": "Username & Password",
+    "loggingIn": "Logging in...",
+    "loginSuccess": "Logged in successfully",
+    "loginFailed": "Login failed",
+    "detectingAgents": "Detecting Agent environments...",
+    "detectedAgents": "Detected Agents:",
+    "notInstalled": "not installed",
+    "installRecommended": "Would you like to install recommended skills?",
+    "installing": "Installing recommended skills...",
+    "syncing": "Syncing to Agents...",
+    "skillsReady": "Your skills are ready!"
+  },
+  "install": {
+    "installing": "Installing {{name}}...",
+    "autoSubscribing": "Auto-subscribing...",
+    "subscribed": "Subscribed automatically",
+    "subscribePrompt": "You are not subscribed to '{{name}}'. Subscribe now?",
+    "subscribeSuccess": "Subscribed successfully",
+    "alreadyInstalled": "{{name}} is already installed",
+    "installSuccess": "{{name}} installed successfully!",
+    "installFailed": "Installation failed: {{error}}"
+  },
+  "search": {
+    "title": "Searching for: \"{{query}}\"",
+    "found": "Found {{count}} capability",
+    "found_plural": "Found {{count}} capabilities",
+    "noResults": "No matching capabilities found"
+  },
+  "sync": {
+    "syncing": "Syncing to Agent environments...",
+    "success": "Sync complete!",
+    "failed": "Sync failed"
+  },
+  "verify": {
+    "verifying": "Verifying {{name}}...",
+    "notInstalled": "'{{name}}' is not installed",
+    "localInstall": "Local Installation",
+    "agentEnvs": "Agent Environments"
+  },
+  "discover": {
+    "title": "Discovering capabilities...",
+    "notLoggedIn": "You are not logged in. Some features may be limited.",
+    "browseCategory": "Browse by category:",
+    "hotTrending": "Hot & Trending",
+    "editorsPicks": "Editor's Picks",
+    "newArrivals": "New Arrivals",
+    "allCapabilities": "All Capabilities",
+    "selectCategory": "Select a category:",
+    "noCapabilities": "No capabilities found in this category",
+    "whatToDo": "What would you like to do?",
+    "installCap": "Install a capability",
+    "viewDetails": "View details",
+    "browseOther": "Browse another category",
+    "exit": "Exit"
+  },
+  "usage": {
+    "howToUse": "How to use:",
+    "claudeCode": "Claude Code:",
+    "opencode": "OpenCode:",
+    "openclaw": "OpenClaw:"
+  },
+  "completion": {
+    "installing": "Installing completion for {{shell}}...",
+    "installed": "Completion script installed",
+    "location": "Location",
+    "unknownShell": "Unknown shell: {{shell}}",
+    "supported": "Supported shells: bash, zsh, fish, csh"
+  },
+  "errors": {
+    "notLoggedIn": "You are not logged in",
+    "serverConnect": "Cannot connect to server",
+    "capabilityNotFound": "Capability '{{name}}' not found",
+    "installFailed": "Installation failed: {{error}}",
+    "subscribeFailed": "Subscription failed: {{error}}"
+  }
+}

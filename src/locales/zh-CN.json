@@ -1,0 +1,96 @@
+{
+  "common": {
+    "success": "成功",
+    "failed": "失败",
+    "error": "错误",
+    "warning": "警告",
+    "info": "信息",
+    "loading": "加载中...",
+    "done": "完成",
+    "cancel": "取消",
+    "confirm": "确认",
+    "yes": "是",
+    "no": "否"
+  },
+  "quickstart": {
+    "welcome": "欢迎使用 SemiNexus CLI！",
+    "letsStart": "让我们开始...",
+    "connecting": "正在连接服务器...",
+    "connected": "已连接到服务器",
+    "loginMethod": "登录方式",
+    "apiKey": "API Key",
+    "usernamePassword": "用户名和密码",
+    "loggingIn": "正在登录...",
+    "loginSuccess": "登录成功",
+    "loginFailed": "登录失败",
+    "detectingAgents": "正在检测 Agent 环境...",
+    "detectedAgents": "检测到的 Agent:",
+    "notInstalled": "未安装",
+    "installRecommended": "是否安装推荐的技能？",
+    "installing": "正在安装推荐的技能...",
+    "syncing": "正在同步到 Agent...",
+    "skillsReady": "您的技能已准备就绪！"
+  },
+  "install": {
+    "installing": "正在安装 {{name}}...",
+    "autoSubscribing": "自动订阅中...",
+    "subscribed": "已自动订阅",
+    "subscribePrompt": "您尚未订阅 '{{name}}'。是否现在订阅？",
+    "subscribeSuccess": "订阅成功",
+    "alreadyInstalled": "{{name}} 已安装",
+    "installSuccess": "{{name}} 安装成功！",
+    "installFailed": "安装失败: {{error}}"
+  },
+  "search": {
+    "title": "搜索: \"{{query}}\"",
+    "found": "找到 {{count}} 个能力",
+    "noResults": "未找到匹配的能力"
+  },
+  "sync": {
+    "syncing": "正在同步到 Agent 环境...",
+    "success": "同步完成！",
+    "failed": "同步失败"
+  },
+  "verify": {
+    "verifying": "正在验证 {{name}}...",
+    "notInstalled": "'{{name}}' 未安装",
+    "localInstall": "本地安装",
+    "agentEnvs": "Agent 环境"
+  },
+  "discover": {
+    "title": "正在发现能力...",
+    "notLoggedIn": "您尚未登录。部分功能可能受限。",
+    "browseCategory": "按类别浏览:",
+    "hotTrending": "热门趋势",
+    "editorsPicks": "编辑精选",
+    "newArrivals": "新上架",
+    "allCapabilities": "所有能力",
+    "selectCategory": "选择类别:",
+    "noCapabilities": "该类别下没有找到能力",
+    "whatToDo": "您想做什么？",
+    "installCap": "安装能力",
+    "viewDetails": "查看详情",
+    "browseOther": "浏览其他类别",
+    "exit": "退出"
+  },
+  "usage": {
+    "howToUse": "如何使用：",
+    "claudeCode": "Claude Code:",
+    "opencode": "OpenCode:",
+    "openclaw": "OpenClaw:"
+  },
+  "completion": {
+    "installing": "正在为 {{shell}} 安装补全...",
+    "installed": "补全脚本已安装",
+    "location": "位置",
+    "unknownShell": "未知的 shell: {{shell}}",
+    "supported": "支持的 shell: bash, zsh, fish, csh"
+  },
+  "errors": {
+    "notLoggedIn": "您尚未登录",
+    "serverConnect": "无法连接到服务器",
+    "capabilityNotFound": "未找到能力 '{{name}}'",
+    "installFailed": "安装失败: {{error}}",
+    "subscribeFailed": "订阅失败: {{error}}"
+  }
+}

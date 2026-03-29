@@ -1,10 +1,17 @@
 import chalk from 'chalk';
 import fs from 'fs-extra';
 import path from 'path';
+import inquirer from 'inquirer';
 import { client, Capability, InstalledCapability } from '../api/client';
 import { registry } from '../api/registry';
+import { agentDetector } from '../api/agents';
 
-export async function install(name: string, options: { version?: string; force?: boolean } = {}): Promise<void> {
+export async function install(name: string, options: { 
+  version?: string; 
+  force?: boolean;
+  autoSubscribe?: boolean;
+  sync?: boolean;
+} = {}): Promise<void> {
   console.log(chalk.blue(`\n📦 Installing ${name}...\n`));
 
   if (!client.isAuthenticated()) {
@@ -31,9 +38,54 @@ export async function install(name: string, options: { version?: string; force?:
   const isSubscribed = await registry.isSubscribed(capability.id);
   
   if (!isSubscribed && client.isAuthenticated()) {
-    console.log(chalk.yellow(`⚠ You are not subscribed to '${name}'.`));
-    console.log(chalk.blue('Run: ') + chalk.yellow(`semi-nexus subscribe ${name}`));
-    process.exit(1);
+    if (options.autoSubscribe) {
+      console.log(chalk.blue('📥 Auto-subscribing...'));
+      try {
+        await client.subscribeCapability(capability.id, capability.version);
+        await registry.markSubscribed({
+          capabilityId: capability.id,
+          capabilityName: capability.name,
+          version: capability.version,
+          subscribedAt: new Date().toISOString(),
+          status: 'active'
+        });
+        console.log(chalk.green('✓ Subscribed automatically'));
+      } catch (error: any) {
+        console.log(chalk.red(`✗ Auto-subscribe failed: ${error.message}`));
+        process.exit(1);
+      }
+    } else {
+      const answers = await inquirer.prompt([
+        {
+          type: 'confirm',
+          name: 'subscribe',
+          message: `You are not subscribed to '${name}'. Subscribe now?`,
+          default: true
+        }
+      ]);
+      
+      if (answers.subscribe) {
+        console.log(chalk.blue('📥 Subscribing...'));
+        try {
+          await client.subscribeCapability(capability.id, capability.version);
+          await registry.markSubscribed({
+            capabilityId: capability.id,
+            capabilityName: capability.name,
+            version: capability.version,
+            subscribedAt: new Date().toISOString(),
+            status: 'active'
+          });
+          console.log(chalk.green('✓ Subscribed successfully'));
+        } catch (error: any) {
+          console.log(chalk.red(`✗ Subscription failed: ${error.message}`));
+          process.exit(1);
+        }
+      } else {
+        console.log(chalk.yellow('⚠ Installation cancelled.'));
+        console.log(chalk.blue('Run: ') + chalk.yellow(`semi-nexus subscribe ${name}`));
+        process.exit(1);
+      }
+    }
   }
 
   const installDir = client.getSkillsDir();
@@ -146,14 +198,100 @@ This skill provides capabilities for ${capability.category?.primary || 'general'
     console.log(chalk.cyan('  Version: ') + version);
     console.log(chalk.cyan('  Location: ') + capInstallDir);
     console.log(chalk.cyan('  Type: ') + capability.type);
-    
-    console.log(chalk.blue('\nNext steps:'));
-    console.log(chalk.gray('  • ') + chalk.yellow('semi-nexus sync') + chalk.gray(' - Sync to Agent environments'));
-    console.log(chalk.gray('  • ') + chalk.yellow('semi-nexus list') + chalk.gray(' - List installed capabilities'));
+
+    if (options.sync) {
+      console.log(chalk.blue('\n🔄 Syncing to Agents...'));
+      await syncToAgents(installedCap);
+    } else {
+      console.log(chalk.blue('\nNext steps:'));
+      console.log(chalk.gray('  • ') + chalk.yellow('semi-nexus sync') + chalk.gray(' - Sync to Agent environments'));
+      console.log(chalk.gray('  • ') + chalk.yellow('semi-nexus list') + chalk.gray(' - List installed capabilities'));
+      console.log(chalk.gray('  • ') + chalk.yellow('semi-nexus verify ' + name) + chalk.gray(' - Check installation status'));
+    }
     console.log();
 
   } catch (error: any) {
     console.log(chalk.red(`\n✗ Installation failed: ${error.message}`));
     process.exit(1);
+  }
+}
+
+async function syncToAgents(cap: InstalledCapability): Promise<void> {
+  const agents = await agentDetector.detectAll();
+  const detectedAgents = agents.filter(a => a.detected);
+
+  if (detectedAgents.length === 0) {
+    console.log(chalk.yellow('⚠ No Agent environments detected.'));
+    console.log(chalk.gray('Supported: Claude Code, OpenCode, OpenClaw'));
+    return;
+  }
+
+  const isWindows = process.platform === 'win32';
+  let successCount = 0;
+
+  for (const agent of detectedAgents) {
+    const targetPath = path.join(agent.skillPath, cap.name);
+    
+    try {
+      await agentDetector.ensureSkillPath(agent.id);
+      
+      if (await fs.pathExists(targetPath)) {
+        const stat = await fs.lstat(targetPath);
+        if (stat.isSymbolicLink()) {
+          await fs.unlink(targetPath);
+        } else {
+          await fs.remove(targetPath);
+        }
+      }
+
+      if (agent.syncMode === 'copy') {
+        await fs.copy(cap.installPath, targetPath);
+      } else {
+        if (isWindows) {
+          await fs.symlink(cap.installPath, targetPath, 'junction');
+        } else {
+          await fs.symlink(cap.installPath, targetPath);
+        }
+      }
+
+      if (!cap.syncedAgents.includes(agent.id)) {
+        cap.syncedAgents.push(agent.id);
+      }
+      await registry.updateSyncStatus(cap.id, cap.syncedAgents);
+      
+      console.log(chalk.green(`  ✓ ${agent.name}`));
+      successCount++;
+    } catch (error: any) {
+      console.log(chalk.red(`  ✗ ${agent.name}: ${error.message}`));
+    }
+  }
+
+  if (successCount > 0) {
+    console.log(chalk.green(`\n✓ Synced to ${successCount} Agent(s)\n`));
+    printUsageGuide(detectedAgents);
+  }
+}
+
+function printUsageGuide(agents: any[]): void {
+  console.log(chalk.bold('📚 How to use:\n'));
+  
+  const claudeCode = agents.find(a => a.id === 'claude-code');
+  if (claudeCode) {
+    console.log(chalk.cyan('Claude Code:'));
+    console.log(chalk.gray('  1. Start a new chat session'));
+    console.log(chalk.gray('  2. Just ask Claude to use the skill\n'));
+  }
+  
+  const opencode = agents.find(a => a.id === 'opencode');
+  if (opencode) {
+    console.log(chalk.cyan('OpenCode:'));
+    console.log(chalk.gray('  1. Restart OpenCode'));
+    console.log(chalk.gray('  2. Skills are auto-loaded\n'));
+  }
+  
+  const openclaw = agents.find(a => a.id === 'openclaw');
+  if (openclaw) {
+    console.log(chalk.cyan('OpenClaw:'));
+    console.log(chalk.gray('  Run: semi-nexus sync --configure\n'));
   }
 }
