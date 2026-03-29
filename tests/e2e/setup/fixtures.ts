@@ -1,4 +1,6 @@
-import { TestServer, TestUser } from './test-server';
+import { testServer, TestUser, TestServer } from './test-server';
+
+export type { TestServer, TestUser };
 
 export interface TestCapability {
   id: string;
@@ -79,7 +81,7 @@ export function generateTestCapability(overrides: Partial<TestCapability> = {}):
 
 export function generateTestPassword(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
-  let password = 'Aa1!'; // Ensure requirements
+  let password = 'Aa1!';
   for (let i = 0; i < 12; i++) {
     password += chars[Math.floor(Math.random() * chars.length)];
   }

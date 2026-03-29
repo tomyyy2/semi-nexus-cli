@@ -12,6 +12,11 @@ export interface TestUser {
   refreshToken: string;
 }
 
+export interface TestServer {
+  url: string;
+  adminPassword: string;
+}
+
 export class TestServerManager {
   private serverUrl: string;
   private adminPassword: string;
