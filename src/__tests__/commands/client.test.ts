@@ -9,7 +9,7 @@ describe('Client', () => {
 
   const defaultConfig: Config = {
     server: { url: 'http://localhost:3000', timeout: 30000 },
-    auth: { token: '', username: '', expiresAt: '' },
+    auth: { token: '', refreshToken: '', username: '', expiresAt: '' },
     install: {
       baseDir: path.join(testBaseDir, '.semi-nexus'),
       skillsDir: path.join(testBaseDir, '.semi-nexus', 'skills'),

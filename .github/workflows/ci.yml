@@ -1,0 +1,152 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install CLI dependencies
+        run: npm ci
+
+      - name: Install Server dependencies
+        run: cd server && npm ci
+
+      - name: Lint CLI
+        run: npm run lint
+
+      - name: Lint Server
+        run: cd server && npm run lint
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install CLI dependencies
+        run: npm ci
+
+      - name: Install Server dependencies
+        run: cd server && npm ci
+
+      - name: Type check CLI
+        run: npm run build
+
+      - name: Type check Server
+        run: cd server && npm run build
+
+  test-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install CLI dependencies
+        run: npm ci
+
+      - name: Install Server dependencies
+        run: cd server && npm ci
+
+      - name: Run CLI unit tests
+        run: npm test -- --coverage
+
+      - name: Run Server unit tests
+        run: cd server && npm test -- --coverage
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage/lcov.info,./server/coverage/lcov.info
+          fail_ci_if_error: false
+
+  test-e2e:
+    runs-on: ubuntu-latest
+    needs: [lint, typecheck]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install CLI dependencies
+        run: npm ci
+
+      - name: Install Server dependencies
+        run: cd server && npm ci
+
+      - name: Build CLI
+        run: npm run build
+
+      - name: Build Server
+        run: cd server && npm run build
+
+      - name: Run E2E tests
+        run: npm run test:e2e
+        continue-on-error: true
+
+  build:
+    runs-on: ubuntu-latest
+    needs: [lint, typecheck, test-unit]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install CLI dependencies
+        run: npm ci
+
+      - name: Install Server dependencies
+        run: cd server && npm ci
+
+      - name: Build CLI
+        run: npm run build
+
+      - name: Build Server
+        run: cd server && npm run build
+
+      - name: Upload CLI build
+        uses: actions/upload-artifact@v4
+        with:
+          name: cli-dist
+          path: dist/
+          retention-days: 7
+
+      - name: Upload Server build
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-dist
+          path: server/dist/
+          retention-days: 7

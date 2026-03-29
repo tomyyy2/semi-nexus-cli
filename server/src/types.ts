@@ -6,6 +6,7 @@ export interface User {
   role: 'admin' | 'user';
   authType: 'local' | 'ldap' | 'ad';
   createdAt: string;
+  updatedAt?: string;
   lastLogin?: string;
   apiKeys: ApiKey[];
   status: 'active' | 'inactive' | 'locked';

@@ -1,0 +1,25 @@
+server:
+  port: 3000
+  host: "0.0.0.0"
+
+auth:
+  jwtExpiresIn: 3600
+  refreshTokenExpiresIn: 604800
+
+ldap:
+  enabled: false
+  url: ""
+  baseDn: ""
+  userSearchBase: ""
+  userSearchFilter: "(uid={{username}})"
+
+registry:
+  maxPackageSize: 104857600
+  allowedTypes:
+    - skill
+    - mcp
+    - agent
+
+logging:
+  level: info
+  file: /var/log/semi-nexus/server.log

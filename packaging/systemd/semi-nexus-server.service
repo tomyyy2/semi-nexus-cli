@@ -1,0 +1,22 @@
+[Unit]
+Description=SemiNexus Server - Agent Capability Hub
+Documentation=https://github.com/tomyyy2/semi-nexus-cli
+After=network.target
+
+[Service]
+Type=simple
+User=semi-nexus
+Group=semi-nexus
+EnvironmentFile=/etc/sysconfig/semi-nexus-server
+WorkingDirectory=/opt/semi-nexus-server
+ExecStart=/usr/bin/node dist/index.js
+Restart=on-failure
+RestartSec=10
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/semi-nexus /var/log/semi-nexus
+
+[Install]
+WantedBy=multi-user.target

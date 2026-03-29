@@ -17,6 +17,9 @@
     "watch": "tsc --watch",
     "dev": "ts-node src/index.ts",
     "test": "jest",
+    "test:unit": "jest --testPathIgnorePatterns=e2e",
+    "test:e2e": "jest --config tests/e2e/jest.config.e2e.js",
+    "test:coverage": "jest --coverage",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit",
     "prepare": "npm run build"
