@@ -201,7 +201,7 @@ describe('Authentication E2E Tests', () => {
         });
         fail('Should have thrown an error');
       } catch (error: any) {
-        expect(error.response.status).toBe(401);
+        expect(error.response?.status).toBe(401);
       }
     });
   });
