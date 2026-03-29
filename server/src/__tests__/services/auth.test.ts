@@ -21,36 +21,36 @@ describe('AuthService', () => {
 
   describe('User Management', () => {
     it('should create a new user', async () => {
-      const user = await authService.createUser('testuser', 'password123', 'user', 'local');
+      const user = await authService.createUser('testuser', 'Test@Pass123', 'user', 'local');
       expect(user.username).toBe('testuser');
       expect(user.role).toBe('user');
       expect(user.authType).toBe('local');
     });
 
     it('should create admin user', async () => {
-      const user = await authService.createUser('admin', 'adminpass', 'admin', 'local');
+      const user = await authService.createUser('admin', 'Admin@Pass123', 'admin', 'local');
       expect(user.role).toBe('admin');
     });
 
     it('should throw error for duplicate username', async () => {
-      await authService.createUser('testuser', 'password123', 'user', 'local');
-      await expect(authService.createUser('testuser', 'password456', 'user', 'local'))
+      await authService.createUser('testuser', 'Test@Pass123', 'user', 'local');
+      await expect(authService.createUser('testuser', 'Test@Pass456', 'user', 'local'))
         .rejects.toThrow('Username already exists');
     });
   });
 
   describe('Authentication', () => {
     it('should login with valid credentials', async () => {
-      await authService.createUser('testuser', 'password123', 'user', 'local');
-      const tokens = await authService.login('testuser', 'password123', 'local');
+      await authService.createUser('testuser', 'Test@Pass123', 'user', 'local');
+      const tokens = await authService.login('testuser', 'Test@Pass123', 'local');
       expect(tokens.accessToken).toBeDefined();
       expect(tokens.refreshToken).toBeDefined();
       expect(tokens.tokenType).toBe('Bearer');
     });
 
     it('should reject invalid password', async () => {
-      await authService.createUser('testuser', 'password123', 'user', 'local');
-      await expect(authService.login('testuser', 'wrongpassword', 'local'))
+      await authService.createUser('testuser', 'Test@Pass123', 'user', 'local');
+      await expect(authService.login('testuser', 'WrongPass123', 'local'))
         .rejects.toThrow('Invalid credentials');
     });
 
@@ -62,8 +62,8 @@ describe('AuthService', () => {
 
   describe('Token Verification', () => {
     it('should verify valid token', async () => {
-      await authService.createUser('testuser', 'password123', 'user', 'local');
-      const tokens = await authService.login('testuser', 'password123', 'local');
+      await authService.createUser('testuser', 'Test@Pass123', 'user', 'local');
+      const tokens = await authService.login('testuser', 'Test@Pass123', 'local');
       const payload = authService.verifyToken(tokens.accessToken);
       expect(payload.username).toBe('testuser');
       expect(payload.role).toBe('user');
@@ -77,14 +77,14 @@ describe('AuthService', () => {
 
   describe('API Key Management', () => {
     it('should create API key', async () => {
-      const user = await authService.createUser('testuser', 'password123', 'user', 'local');
+      const user = await authService.createUser('testuser', 'Test@Pass123', 'user', 'local');
       const { apiKey, keyId } = await authService.createApiKey(user.id, 'My Workstation');
       expect(apiKey).toMatch(/^snx_/);
       expect(keyId).toMatch(/^key_/);
     });
 
     it('should list API keys', async () => {
-      const user = await authService.createUser('testuser', 'password123', 'user', 'local');
+      const user = await authService.createUser('testuser', 'Test@Pass123', 'user', 'local');
       await authService.createApiKey(user.id, 'Key 1');
       await authService.createApiKey(user.id, 'Key 2');
       const keys = authService.listApiKeys(user.id);
@@ -92,7 +92,7 @@ describe('AuthService', () => {
     });
 
     it('should revoke API key', async () => {
-      const user = await authService.createUser('testuser', 'password123', 'user', 'local');
+      const user = await authService.createUser('testuser', 'Test@Pass123', 'user', 'local');
       const { keyId } = await authService.createApiKey(user.id, 'My Key');
       authService.revokeApiKey(user.id, keyId);
       const keys = authService.listApiKeys(user.id);
@@ -100,7 +100,7 @@ describe('AuthService', () => {
     });
 
     it('should verify valid API key', async () => {
-      const user = await authService.createUser('testuser', 'password123', 'user', 'local');
+      const user = await authService.createUser('testuser', 'Test@Pass123', 'user', 'local');
       const { apiKey } = await authService.createApiKey(user.id, 'My Key');
       const verifiedUser = authService.verifyApiKey(apiKey);
       expect(verifiedUser).toBeDefined();
