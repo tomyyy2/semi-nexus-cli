@@ -44,7 +44,7 @@ router.post('/refresh', async (req: Request, res: Response) => {
       return;
     }
 
-    const tokens = await authService.login(user.username, '', user.authType);
+    const tokens = authService.generateTokensForUser(user.id);
     res.json(tokens);
   } catch (error) {
     res.status(401).json({ error: 'Invalid refresh token' });
