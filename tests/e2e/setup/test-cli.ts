@@ -131,6 +131,22 @@ export class TestCliManager {
   async info(name: string): Promise<{ stdout: string; exitCode: number }> {
     return this.run(['info', name]);
   }
+
+  async verify(name: string): Promise<{ stdout: string; exitCode: number }> {
+    return this.run(['verify', name]);
+  }
+
+  async discover(): Promise<{ stdout: string; exitCode: number }> {
+    return this.run(['discover']);
+  }
+
+  async completion(shell: string): Promise<{ stdout: string; exitCode: number }> {
+    return this.run(['completion', shell]);
+  }
+
+  getConfigDir(): string {
+    return this.cli?.configDir || '';
+  }
 }
 
 export const testCli = new TestCliManager();
