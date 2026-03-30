@@ -1,40 +1,8 @@
 import { v4 as uuidv4 } from 'uuid';
-import fs from 'fs-extra';
-import path from 'path';
-import os from 'os';
 import { AuditLog } from '../types';
+import { getDatabase } from '../container';
 
-export class AuditService {
-  private logs: AuditLog[] = [];
-  private auditDir: string;
-
-  constructor(dataDir: string = path.join(os.homedir(), '.semi-nexus', 'server', 'audit')) {
-    this.auditDir = dataDir;
-    this.load();
-  }
-
-  private async load(): Promise<void> {
-    try {
-      const today = new Date().toISOString().split('T')[0];
-      const logFile = path.join(this.auditDir, `${today}.json`);
-
-      if (await fs.pathExists(logFile)) {
-        const data = await fs.readFile(logFile, 'utf-8');
-        this.logs = JSON.parse(data);
-      }
-    } catch (error) {
-      console.error('Failed to load audit logs:', error);
-    }
-  }
-
-  private async save(): Promise<void> {
-    const today = new Date().toISOString().split('T')[0];
-    const logFile = path.join(this.auditDir, `${today}.json`);
-
-    await fs.ensureDir(this.auditDir);
-    await fs.writeFile(logFile, JSON.stringify(this.logs, null, 2), 'utf-8');
-  }
-
+class AuditService {
   log(
     userId: string,
     action: string,
@@ -54,8 +22,14 @@ export class AuditService {
       timestamp: new Date().toISOString()
     };
 
-    this.logs.push(entry);
-    this.save();
+    try {
+      const db = getDatabase();
+      db.createAuditLog(entry).catch(err => {
+        console.error('Failed to save audit log:', err);
+      });
+    } catch {
+      console.error('Database not initialized for audit logging');
+    }
   }
 
   async query(options: {
@@ -67,13 +41,15 @@ export class AuditService {
     limit?: number;
     offset?: number;
   } = {}): Promise<AuditLog[]> {
-    await this.load();
+    const db = getDatabase();
+    const logs = await db.getAuditLogs({
+      userId: options.userId,
+      limit: options.limit || 100,
+      offset: options.offset || 0
+    });
 
-    let results = [...this.logs];
+    let results = logs;
 
-    if (options.userId) {
-      results = results.filter(l => l.userId === options.userId);
-    }
     if (options.action) {
       results = results.filter(l => l.action === options.action);
     }
@@ -87,21 +63,19 @@ export class AuditService {
       results = results.filter(l => l.timestamp <= options.endDate!);
     }
 
-    results.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
-
-    const offset = options.offset || 0;
-    const limit = options.limit || 100;
-
-    return results.slice(offset, offset + limit);
+    return results;
   }
 
-  getUserActivity(userId: string, days: number = 30): AuditLog[] {
+  async getUserActivity(userId: string, days: number = 30): Promise<AuditLog[]> {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
+    
+    const logs = await this.query({
+      userId,
+      startDate: startDate.toISOString()
+    });
 
-    return this.logs.filter(
-      l => l.userId === userId && new Date(l.timestamp) >= startDate
-    );
+    return logs;
   }
 }
 

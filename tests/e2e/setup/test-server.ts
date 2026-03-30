@@ -17,9 +17,11 @@ export interface TestServer {
   adminPassword: string;
 }
 
-export class TestServerManager {
+class TestServerManagerImpl {
   private serverUrl: string;
   private adminPassword: string;
+  private adminToken: string | null = null;
+  private initialized = false;
 
   constructor() {
     this.serverUrl = SERVER_URL;
@@ -27,15 +29,24 @@ export class TestServerManager {
   }
 
   async start(): Promise<{ url: string; port: number; dataDir: string; jwtSecret: string; adminPassword: string }> {
+    if (this.initialized) {
+      return this.getServerInfo();
+    }
+
     try {
-      const response = await axios.get(`${this.serverUrl}/health`);
+      const response = await axios.get(`${this.serverUrl}/health`, { timeout: 5000 });
       if (response.data.status !== 'ok') {
         throw new Error('Server health check failed');
       }
+      this.initialized = true;
     } catch (error) {
       throw new Error(`Server not available at ${this.serverUrl}. Please start the server first.`);
     }
 
+    return this.getServerInfo();
+  }
+
+  private getServerInfo() {
     return {
       url: this.serverUrl,
       port: 3000,
@@ -46,6 +57,20 @@ export class TestServerManager {
   }
 
   async stop(): Promise<void> {
+    this.adminToken = null;
+    this.initialized = false;
+  }
+
+  async resetState(): Promise<void> {
+    try {
+      const token = await this.getAdminToken();
+      await axios.post(`${this.serverUrl}/api/v1/admin/reset-test-state`, {}, {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 5000
+      });
+    } catch {
+      // Ignore reset errors - endpoint may not exist
+    }
   }
 
   getServer(): { url: string; adminPassword: string } {
@@ -62,22 +87,23 @@ export class TestServerManager {
 
     const adminToken = await this.getAdminToken();
 
-    await axios.post(`${this.serverUrl}/api/v1/admin/users`, {
+    const createResponse = await axios.post(`${this.serverUrl}/api/v1/admin/users`, {
       username,
       password,
       role
     }, {
-      headers: { Authorization: `Bearer ${adminToken}` }
+      headers: { Authorization: `Bearer ${adminToken}` },
+      timeout: 10000
     });
 
     const loginResponse = await axios.post(`${this.serverUrl}/api/v1/auth/login`, {
       username,
       password,
       authType: 'local'
-    });
+    }, { timeout: 10000 });
 
     return {
-      id: loginResponse.data.user?.id || `user_${username}`,
+      id: createResponse.data.id || `user_${username}`,
       username,
       password,
       role,
@@ -87,12 +113,18 @@ export class TestServerManager {
   }
 
   private async getAdminToken(): Promise<string> {
+    if (this.adminToken) {
+      return this.adminToken;
+    }
+    
     const loginResponse = await axios.post(`${this.serverUrl}/api/v1/auth/login`, {
       username: 'admin',
       password: this.adminPassword,
       authType: 'local'
-    });
-    return loginResponse.data.accessToken;
+    }, { timeout: 10000 });
+    
+    this.adminToken = loginResponse.data.accessToken;
+    return this.adminToken!;
   }
 
   async loginAdmin(): Promise<TestUser> {
@@ -100,10 +132,10 @@ export class TestServerManager {
       username: 'admin',
       password: this.adminPassword,
       authType: 'local'
-    });
+    }, { timeout: 10000 });
 
     return {
-      id: 'admin',
+      id: loginResponse.data.user?.id || 'admin',
       username: 'admin',
       password: this.adminPassword,
       role: 'admin',
@@ -113,4 +145,4 @@ export class TestServerManager {
   }
 }
 
-export const testServer = new TestServerManager();
+export const testServer = new TestServerManagerImpl();

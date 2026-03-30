@@ -1,97 +1,46 @@
 import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs-extra';
 import path from 'path';
-import os from 'os';
 import {
   Capability, CapabilityVersion, Subscription, SecurityScan, Compliance
 } from '../types';
+import { DatabaseAdapter } from '../database';
 
 export class RegistryService {
-  private capabilities: Map<string, Capability> = new Map();
-  private subscriptions: Map<string, Subscription> = new Map();
+  private db: DatabaseAdapter;
   private dataDir: string;
-  private registryFile: string;
-  private subscriptionsFile: string;
 
   constructor(
-    dataDir: string = path.join(os.homedir(), '.semi-nexus', 'server', 'registry')
+    db: DatabaseAdapter,
+    dataDir: string
   ) {
+    this.db = db;
     this.dataDir = dataDir;
-    this.registryFile = path.join(dataDir, 'capabilities.json');
-    this.subscriptionsFile = path.join(dataDir, 'subscriptions.json');
-    this.load();
+    fs.ensureDirSync(path.join(dataDir, 'packages'));
   }
 
-  private load(): void {
-    try {
-      if (fs.existsSync(this.registryFile)) {
-        const data = fs.readFileSync(this.registryFile, 'utf-8');
-        const capabilities: Capability[] = JSON.parse(data);
-        capabilities.forEach(c => this.capabilities.set(c.id, c));
-      }
-      if (fs.existsSync(this.subscriptionsFile)) {
-        const data = fs.readFileSync(this.subscriptionsFile, 'utf-8');
-        const subscriptions: Subscription[] = JSON.parse(data);
-        subscriptions.forEach(s => this.subscriptions.set(s.id, s));
-      }
-    } catch (error) {
-      console.error('Failed to load registry:', error);
-    }
-  }
-
-  private save(): void {
-    fs.ensureDirSync(this.dataDir);
-    fs.writeFileSync(
-      this.registryFile,
-      JSON.stringify(Array.from(this.capabilities.values()), null, 2),
-      'utf-8'
-    );
-    fs.writeFileSync(
-      this.subscriptionsFile,
-      JSON.stringify(Array.from(this.subscriptions.values()), null, 2),
-      'utf-8'
-    );
-  }
-
-  getCapabilities(options: {
+  async getCapabilities(options: {
     query?: string;
     type?: string;
     tag?: string;
     status?: string;
-  } = {}): Capability[] {
-    let results = Array.from(this.capabilities.values())
-      .filter(c => c.status === 'approved');
-
-    if (options.query) {
-      const q = options.query.toLowerCase();
-      results = results.filter(c =>
-        c.name.toLowerCase().includes(q) ||
-        c.description.toLowerCase().includes(q) ||
-        c.tags.some(t => t.toLowerCase().includes(q))
-      );
-    }
-
-    if (options.type) {
-      results = results.filter(c => c.type === options.type);
-    }
-
-    if (options.tag) {
-      results = results.filter(c => c.tags.includes(options.tag!));
-    }
-
-    if (options.status) {
-      results = results.filter(c => c.status === options.status);
-    }
-
-    return results;
+  } = {}): Promise<Capability[]> {
+    return this.db.getCapabilities({
+      query: options.query,
+      type: options.type,
+      tag: options.tag,
+      status: options.status
+    });
   }
 
-  getCapability(id: string): Capability | undefined {
-    return this.capabilities.get(id);
+  async getCapability(id: string): Promise<Capability | undefined> {
+    const capability = await this.db.getCapability(id);
+    return capability || undefined;
   }
 
-  getCapabilityByName(name: string): Capability | undefined {
-    return Array.from(this.capabilities.values()).find(c => c.name === name);
+  async getCapabilityByName(name: string): Promise<Capability | undefined> {
+    const capability = await this.db.getCapabilityByName(name);
+    return capability || undefined;
   }
 
   async createCapability(data: {
@@ -145,26 +94,19 @@ export class RegistryService {
       updatedAt: new Date().toISOString()
     };
 
-    this.capabilities.set(id, capability);
-    this.save();
+    await this.db.createCapability(capability);
+    await this.db.addCapabilityVersion({ ...version, capabilityId: id } as CapabilityVersion & { capabilityId: string });
+    
     return capability;
   }
 
-  updateCapability(id: string, updates: Partial<Capability>): Capability | undefined {
-    const capability = this.capabilities.get(id);
-    if (!capability) return undefined;
-
-    Object.assign(capability, updates, {
-      updatedAt: new Date().toISOString()
-    });
-
-    this.capabilities.set(id, capability);
-    this.save();
-    return capability;
+  async updateCapability(id: string, updates: Partial<Capability>): Promise<Capability | undefined> {
+    const capability = await this.db.updateCapability(id, updates);
+    return capability || undefined;
   }
 
-  addVersion(id: string, version: string, snpContent?: string, changelog?: string): Capability | undefined {
-    const capability = this.capabilities.get(id);
+  async addVersion(id: string, version: string, snpContent?: string, changelog?: string): Promise<Capability | undefined> {
+    const capability = await this.db.getCapability(id);
     if (!capability) return undefined;
 
     const newVersion: CapabilityVersion = {
@@ -180,60 +122,62 @@ export class RegistryService {
       fs.writeFileSync(newVersion.snpFile, snpContent, 'utf-8');
     }
 
-    capability.versions.push(newVersion);
-    capability.version = version;
-    capability.updatedAt = new Date().toISOString();
+    await this.db.addCapabilityVersion({ ...newVersion, capabilityId: id } as CapabilityVersion & { capabilityId: string });
+    
+    await this.db.updateCapability(id, {
+      version,
+      updatedAt: new Date().toISOString()
+    });
 
-    this.capabilities.set(id, capability);
-    this.save();
-    return capability;
+    const result = await this.db.getCapability(id);
+    return result ?? undefined;
   }
 
-  updateSecurityScan(id: string, scan: SecurityScan): void {
-    const capability = this.capabilities.get(id);
+  async updateSecurityScan(id: string, scan: SecurityScan): Promise<void> {
+    const capability = await this.db.getCapability(id);
     if (!capability) return;
 
-    capability.securityScan = scan;
-    capability.updatedAt = new Date().toISOString();
-
+    let status = capability.status;
     if (scan.status === 'passed' || scan.status === 'failed') {
-      capability.status = scan.status === 'passed' ? 'pending' : 'rejected';
+      status = scan.status === 'passed' ? 'pending' : 'rejected';
     }
 
-    this.capabilities.set(id, capability);
-    this.save();
+    await this.db.updateCapability(id, {
+      securityScan: scan,
+      status,
+      updatedAt: new Date().toISOString()
+    });
   }
 
-  updateCompliance(id: string, compliance: Compliance): void {
-    const capability = this.capabilities.get(id);
+  async updateCompliance(id: string, compliance: Compliance): Promise<void> {
+    const capability = await this.db.getCapability(id);
     if (!capability) return;
 
-    capability.compliance = compliance;
-    capability.updatedAt = new Date().toISOString();
-
+    let status = capability.status;
     if (compliance.status === 'approved') {
-      capability.status = 'approved';
+      status = 'approved';
     } else if (compliance.status === 'rejected') {
-      capability.status = 'rejected';
+      status = 'rejected';
     }
 
-    this.capabilities.set(id, capability);
-    this.save();
+    await this.db.updateCapability(id, {
+      compliance,
+      status,
+      updatedAt: new Date().toISOString()
+    });
   }
 
   async subscribe(userId: string, capabilityId: string, version?: string): Promise<Subscription> {
-    const capability = this.capabilities.get(capabilityId);
+    const capability = await this.db.getCapability(capabilityId);
     if (!capability) throw new Error('Capability not found');
 
-    const existing = Array.from(this.subscriptions.values()).find(
-      s => s.userId === userId && s.capabilityId === capabilityId && s.status === 'active'
-    );
+    const existing = await this.db.getSubscription(userId, capabilityId);
 
     if (existing) {
-      existing.version = version || capability.version;
-      this.subscriptions.set(existing.id, existing);
-      this.save();
-      return existing;
+      const updated = await this.db.updateSubscription(existing.id, {
+        version: version || capability.version
+      });
+      return updated || existing;
     }
 
     const subscription: Subscription = {
@@ -245,47 +189,40 @@ export class RegistryService {
       status: 'active'
     };
 
-    this.subscriptions.set(subscription.id, subscription);
+    await this.db.createSubscription(subscription);
 
     capability.statistics.subscribers++;
-    this.capabilities.set(capabilityId, capability);
+    await this.db.updateCapability(capabilityId, {
+      statistics: capability.statistics
+    });
 
-    this.save();
     return subscription;
   }
 
-  unsubscribe(userId: string, capabilityId: string): void {
-    const subscription = Array.from(this.subscriptions.values()).find(
-      s => s.userId === userId && s.capabilityId === capabilityId && s.status === 'active'
-    );
+  async unsubscribe(userId: string, capabilityId: string): Promise<void> {
+    const subscription = await this.db.getSubscription(userId, capabilityId);
 
     if (subscription) {
-      subscription.status = 'expired';
-      this.subscriptions.set(subscription.id, subscription);
-      this.save();
+      await this.db.updateSubscription(subscription.id, { status: 'expired' });
     }
   }
 
-  getUserSubscriptions(userId: string): (Subscription & { capability?: Capability })[] {
-    return Array.from(this.subscriptions.values())
-      .filter(s => s.userId === userId && s.status === 'active')
-      .map(s => ({
-        ...s,
-        capability: this.capabilities.get(s.capabilityId)
-      }));
+  async getUserSubscriptions(userId: string): Promise<(Subscription & { capability?: Capability })[]> {
+    return this.db.getUserSubscriptions(userId);
   }
 
-  incrementDownloads(id: string): void {
-    const capability = this.capabilities.get(id);
+  async incrementDownloads(id: string): Promise<void> {
+    const capability = await this.db.getCapability(id);
     if (capability) {
       capability.statistics.downloads++;
-      this.capabilities.set(id, capability);
-      this.save();
+      await this.db.updateCapability(id, {
+        statistics: capability.statistics
+      });
     }
   }
 
-  rateCapability(id: string, rating: number): void {
-    const capability = this.capabilities.get(id);
+  async rateCapability(id: string, rating: number): Promise<void> {
+    const capability = await this.db.getCapability(id);
     if (!capability) return;
 
     const { ratingCount, rating: currentRating } = capability.statistics;
@@ -298,21 +235,15 @@ export class RegistryService {
       ratingCount: newRatingCount
     };
 
-    this.capabilities.set(id, capability);
-    this.save();
+    await this.db.updateCapability(id, {
+      statistics: capability.statistics
+    });
   }
 
   getPackagePath(id: string, version?: string): string | undefined {
-    const capability = this.capabilities.get(id);
-    if (!capability) return undefined;
-
     if (version) {
-      const ver = capability.versions.find(v => v.version === version);
-      return ver?.snpFile;
+      return path.join(this.dataDir, 'packages', id, `${version}.snp`);
     }
-
-    return capability.versions[capability.versions.length - 1]?.snpFile;
+    return path.join(this.dataDir, 'packages', id, 'latest.snp');
   }
 }
-
-export const registryService = new RegistryService();

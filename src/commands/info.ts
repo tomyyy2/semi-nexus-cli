@@ -9,7 +9,8 @@ export async function info(name: string): Promise<void> {
 
   try {
     capability = await client.getCapability(name);
-  } catch (error) {
+  } catch {
+    // Ignore - will try local registry
   }
 
   if (!capability) {

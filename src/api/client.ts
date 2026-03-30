@@ -207,7 +207,8 @@ export class SemiNexusClient {
   async logout(): Promise<void> {
     try {
       await this.api.post('/auth/logout');
-    } catch (error) {
+    } catch {
+      // Ignore logout errors - client-side cleanup is sufficient
     }
     this.clearAuth();
   }

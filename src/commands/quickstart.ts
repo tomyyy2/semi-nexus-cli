@@ -2,8 +2,6 @@ import chalk from 'chalk';
 import inquirer from 'inquirer';
 import fs from 'fs-extra';
 import path from 'path';
-import os from 'os';
-import yaml from 'yaml';
 import { client } from '../api/client';
 import { agentDetector } from '../api/agents';
 import { registry } from '../api/registry';
@@ -11,9 +9,6 @@ import { registry } from '../api/registry';
 export async function quickstart(): Promise<void> {
   console.log(chalk.blue('\n🚀 Welcome to SemiNexus CLI!\n'));
   console.log(chalk.gray('Let\'s get you started...\n'));
-
-  const baseDir = path.join(os.homedir(), '.semi-nexus');
-  const configPath = path.join(baseDir, 'config.yaml');
 
   const serverUrl = await askServerUrl();
   

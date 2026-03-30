@@ -1,7 +1,6 @@
 import chalk from 'chalk';
 import fs from 'fs-extra';
 import path from 'path';
-import os from 'os';
 import { registry } from '../api/registry';
 import { agentDetector } from '../api/agents';
 

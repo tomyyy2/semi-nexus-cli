@@ -273,11 +273,11 @@ complete semi-nexus 'p/2/(--type --tag --limit)/' 'n/search/'
 complete semi-nexus 'p/2/(--configure --status)/' 'n/sync/'
 
 # For bash-style completion (if using tcsh)
-if (\$?tcsh) then
+if ($?tcsh) then
   set complete=enhance
 endif
 
 # Alternative: simple alias-based completion
-# alias semi-nexus 'semi-nexus \!*'
+# alias semi-nexus 'semi-nexus !*'
 `;
 }

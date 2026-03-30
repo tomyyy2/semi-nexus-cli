@@ -90,7 +90,7 @@ export async function discover(options: { install?: boolean } = {}): Promise<voi
   ]);
 
   switch (action.action) {
-    case 'install':
+    case 'install': {
       const installAnswer = await inquirer.prompt([
         {
           type: 'list',
@@ -114,8 +114,8 @@ export async function discover(options: { install?: boolean } = {}): Promise<voi
       
       await install(installAnswer.capability, { autoSubscribe: true, sync: syncAnswer.sync });
       break;
-      
-    case 'info':
+    }
+    case 'info': {
       const infoAnswer = await inquirer.prompt([
         {
           type: 'list',
@@ -148,7 +148,7 @@ export async function discover(options: { install?: boolean } = {}): Promise<voi
         console.log();
       }
       break;
-      
+    }
     case 'back':
       await discover(options);
       break;
@@ -195,7 +195,7 @@ async function getAll(): Promise<any[]> {
   }
 }
 
-function getMockCapabilities(type: string): any[] {
+function getMockCapabilities(_type: string): any[] {
   const mockCapabilities = [
     {
       id: 'cap_mock_001',

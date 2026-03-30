@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { authService } from '../services/auth';
+import { getAuthService } from '../container';
 import { TokenPayload, User } from '../types';
 
 declare global {
@@ -11,13 +11,14 @@ declare global {
   }
 }
 
-export function authenticate(req: Request, res: Response, next: NextFunction): void {
+export async function authenticate(req: Request, res: Response, next: NextFunction): Promise<void> {
   const authHeader = req.headers.authorization;
   const apiKey = req.headers['x-api-key'] as string || req.headers['X-Api-Key'] as string;
+  const authService = getAuthService();
 
   try {
     if (apiKey) {
-      const user = authService.verifyApiKey(apiKey);
+      const user = await authService.verifyApiKey(apiKey);
       if (!user) {
         res.status(401).json({ error: 'Invalid or expired API key' });
         return;
@@ -34,7 +35,7 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
 
     const token = authHeader.substring(7);
     const payload = authService.verifyToken(token);
-    const user = authService.getUser(payload.userId);
+    const user = await authService.getUser(payload.userId);
 
     if (!user) {
       res.status(401).json({ error: 'User not found' });
@@ -57,20 +58,21 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction): v
   next();
 }
 
-export function optionalAuth(req: Request, res: Response, next: NextFunction): void {
+export async function optionalAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   const authHeader = req.headers.authorization;
   const apiKey = req.headers['x-api-key'] as string;
+  const authService = getAuthService();
 
   try {
     if (apiKey) {
-      const user = authService.verifyApiKey(apiKey);
+      const user = await authService.verifyApiKey(apiKey);
       if (user) {
         req.user = user;
       }
     } else if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring(7);
       const payload = authService.verifyToken(token);
-      const user = authService.getUser(payload.userId);
+      const user = await authService.getUser(payload.userId);
       if (user) {
         req.user = user;
         req.auth = payload;

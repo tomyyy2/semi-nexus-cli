@@ -63,12 +63,14 @@ export const testCapabilities: TestCapability[] = [
   }
 ];
 
-export function generateTestCapability(overrides: Partial<TestCapability> = {}): TestCapability {
-  const id = `cap_test_${Date.now()}`;
+let capabilityCounter = 0;
+
+export function generateTestCapability(overrides: Partial<TestCapability> = {}): Omit<TestCapability, 'id'> {
+  capabilityCounter++;
+  const uniqueId = `${Date.now()}_${process.pid}_${capabilityCounter}_${Math.random().toString(36).substring(2, 8)}`;
   return {
-    id,
-    name: `test-capability-${id.substring(0, 8)}`,
-    displayName: `Test Capability ${id.substring(0, 8)}`,
+    name: `test-cap-${uniqueId}`,
+    displayName: `Test Capability ${uniqueId.substring(0, 16)}`,
     description: 'A test capability for E2E testing purposes. This is a comprehensive description that meets the minimum length requirement.',
     type: 'skill',
     version: '1.0.0',

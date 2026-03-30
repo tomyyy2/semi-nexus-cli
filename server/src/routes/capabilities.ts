@@ -1,7 +1,6 @@
 import { Router, Request, Response } from 'express';
 import fs from 'fs-extra';
-import path from 'path';
-import { registryService } from '../services/registry';
+import { getRegistryService } from '../container';
 import { authenticate } from '../middleware/auth';
 import { auditService } from '../services/audit';
 
@@ -10,8 +9,9 @@ const router = Router();
 router.get('/', async (req: Request, res: Response) => {
   try {
     const { query, type, tag, status } = req.query;
+    const registryService = getRegistryService();
 
-    const capabilities = registryService.getCapabilities({
+    const capabilities = await registryService.getCapabilities({
       query: query as string,
       type: type as string,
       tag: tag as string,
@@ -27,9 +27,24 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
+router.get('/subscriptions', authenticate, async (req: Request, res: Response) => {
+  try {
+    const registryService = getRegistryService();
+    const subscriptions = await registryService.getUserSubscriptions(req.user!.id);
+    res.json(subscriptions);
+  } catch (error) {
+    res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 router.get('/:id', async (req: Request, res: Response) => {
   try {
-    const capability = registryService.getCapability(req.params.id);
+    const registryService = getRegistryService();
+    let capability = await registryService.getCapability(req.params.id);
+    
+    if (!capability) {
+      capability = await registryService.getCapabilityByName(req.params.id);
+    }
 
     if (!capability) {
       res.status(404).json({ error: 'Capability not found' });
@@ -45,6 +60,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 router.get('/:id/download', authenticate, async (req: Request, res: Response) => {
   try {
     const { version } = req.query;
+    const registryService = getRegistryService();
     const packagePath = registryService.getPackagePath(
       req.params.id,
       version as string
@@ -55,7 +71,7 @@ router.get('/:id/download', authenticate, async (req: Request, res: Response) =>
       return;
     }
 
-    registryService.incrementDownloads(req.params.id);
+    await registryService.incrementDownloads(req.params.id);
     auditService.log(
       req.user!.id,
       'download',
@@ -78,9 +94,21 @@ router.get('/:id/download', authenticate, async (req: Request, res: Response) =>
 router.post('/:id/subscribe', authenticate, async (req: Request, res: Response) => {
   try {
     const { version } = req.body;
+    const registryService = getRegistryService();
+    
+    let capability = await registryService.getCapability(req.params.id);
+    if (!capability) {
+      capability = await registryService.getCapabilityByName(req.params.id);
+    }
+    
+    if (!capability) {
+      res.status(404).json({ error: 'Capability not found' });
+      return;
+    }
+    
     const subscription = await registryService.subscribe(
       req.user!.id,
-      req.params.id,
+      capability.id,
       version
     );
 
@@ -88,7 +116,7 @@ router.post('/:id/subscribe', authenticate, async (req: Request, res: Response) 
       req.user!.id,
       'subscribe',
       'capability',
-      req.params.id,
+      capability.id,
       { version },
       req.ip
     );
@@ -101,7 +129,8 @@ router.post('/:id/subscribe', authenticate, async (req: Request, res: Response) 
 
 router.delete('/:id/subscribe', authenticate, async (req: Request, res: Response) => {
   try {
-    registryService.unsubscribe(req.user!.id, req.params.id);
+    const registryService = getRegistryService();
+    await registryService.unsubscribe(req.user!.id, req.params.id);
 
     auditService.log(
       req.user!.id,
@@ -118,25 +147,17 @@ router.delete('/:id/subscribe', authenticate, async (req: Request, res: Response
   }
 });
 
-router.get('/:id/subscriptions', authenticate, async (req: Request, res: Response) => {
-  try {
-    const subscriptions = registryService.getUserSubscriptions(req.user!.id);
-    res.json(subscriptions);
-  } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
-  }
-});
-
 router.post('/:id/rate', authenticate, async (req: Request, res: Response) => {
   try {
     const { rating } = req.body;
+    const registryService = getRegistryService();
 
     if (!rating || rating < 1 || rating > 5) {
       res.status(400).json({ error: 'Rating must be between 1 and 5' });
       return;
     }
 
-    registryService.rateCapability(req.params.id, rating);
+    await registryService.rateCapability(req.params.id, rating);
 
     auditService.log(
       req.user!.id,

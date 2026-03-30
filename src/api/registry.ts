@@ -1,7 +1,6 @@
 import fs from 'fs-extra';
 import path from 'path';
 import os from 'os';
-import yaml from 'yaml';
 
 export interface Capability {
   id: string;

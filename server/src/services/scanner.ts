@@ -1,12 +1,13 @@
 import { v4 as uuidv4 } from 'uuid';
 import { SecurityScan, SecurityIssue, Capability } from '../types';
-import { registryService } from './registry';
+import { getRegistryService } from '../container';
 
 export class ScannerService {
   private scanCache: Map<string, SecurityScan> = new Map();
 
   async scan(capabilityId: string): Promise<SecurityScan> {
-    const capability = registryService.getCapability(capabilityId);
+    const registryService = getRegistryService();
+    const capability = await registryService.getCapability(capabilityId);
     if (!capability) {
       throw new Error('Capability not found');
     }
@@ -18,7 +19,7 @@ export class ScannerService {
       scannerVersion: '1.0.0'
     };
 
-    registryService.updateSecurityScan(capabilityId, scan);
+    await registryService.updateSecurityScan(capabilityId, scan);
 
     try {
       const issues = await this.performScan(capability);
@@ -41,7 +42,7 @@ export class ScannerService {
       }];
     }
 
-    registryService.updateSecurityScan(capabilityId, scan);
+    await registryService.updateSecurityScan(capabilityId, scan);
     return scan;
   }
 

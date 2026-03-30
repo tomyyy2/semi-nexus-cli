@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { authService } from '../services/auth';
+import { getAuthService } from '../container';
 import { authenticate, requireAdmin } from '../middleware/auth';
 import { auditService } from '../services/audit';
 
@@ -8,13 +8,14 @@ const router = Router();
 router.post('/login', async (req: Request, res: Response) => {
   try {
     const { username, password, authType } = req.body;
+    const authService = getAuthService();
 
     if (!username || !password) {
       res.status(400).json({ error: 'Username and password required' });
       return;
     }
 
-    const tokens = await authService.login(username, password, authType || 'local');
+    const tokens = await authService.login(username, password, authType || 'local', req.ip);
     auditService.log('system', 'login', 'auth', undefined, { username, authType }, req.ip);
 
     res.json(tokens);
@@ -26,6 +27,7 @@ router.post('/login', async (req: Request, res: Response) => {
 router.post('/refresh', async (req: Request, res: Response) => {
   try {
     const { refreshToken } = req.body;
+    const authService = getAuthService();
 
     if (!refreshToken) {
       res.status(400).json({ error: 'Refresh token required' });
@@ -38,13 +40,13 @@ router.post('/refresh', async (req: Request, res: Response) => {
       return;
     }
 
-    const user = authService.getUser(payload.userId);
+    const user = await authService.getUser(payload.userId);
     if (!user) {
       res.status(401).json({ error: 'User not found' });
       return;
     }
 
-    const tokens = authService.generateTokensForUser(user.id);
+    const tokens = await authService.generateTokensForUser(user.id);
     res.json(tokens);
   } catch (error) {
     res.status(401).json({ error: 'Invalid refresh token' });
@@ -59,6 +61,7 @@ router.post('/logout', authenticate, (req: Request, res: Response) => {
 router.post('/api-keys', authenticate, async (req: Request, res: Response) => {
   try {
     const { name, expiresIn } = req.body;
+    const authService = getAuthService();
 
     if (!name) {
       res.status(400).json({ error: 'Name is required' });
@@ -79,8 +82,9 @@ router.post('/api-keys', authenticate, async (req: Request, res: Response) => {
   }
 });
 
-router.get('/api-keys', authenticate, (req: Request, res: Response) => {
-  const keys = authService.listApiKeys(req.user!.id);
+router.get('/api-keys', authenticate, async (req: Request, res: Response) => {
+  const authService = getAuthService();
+  const keys = await authService.listApiKeys(req.user!.id);
   res.json(keys.map(k => ({
     id: k.id,
     name: k.name,
@@ -91,10 +95,10 @@ router.get('/api-keys', authenticate, (req: Request, res: Response) => {
   })));
 });
 
-router.delete('/api-keys/:id', authenticate, (req: Request, res: Response) => {
-  const { id } = req.params;
-  authService.revokeApiKey(req.user!.id, id);
-  auditService.log(req.user!.id, 'revoke_apikey', 'apikey', id, undefined, req.ip);
+router.delete('/api-keys/:id', authenticate, async (req: Request, res: Response) => {
+  const authService = getAuthService();
+  await authService.revokeApiKey(req.user!.id, req.params.id);
+  auditService.log(req.user!.id, 'revoke_apikey', 'apikey', req.params.id, undefined, req.ip);
   res.json({ message: 'API key revoked' });
 });
 

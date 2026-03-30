@@ -1,6 +1,5 @@
 import chalk from 'chalk';
 import { registry } from '../api/registry';
-import { client } from '../api/client';
 
 export async function list(): Promise<void> {
   console.log(chalk.blue('\n📋 Installed Capabilities\n'));

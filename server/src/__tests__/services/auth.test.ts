@@ -1,21 +1,26 @@
 import { AuthService } from '../../services/auth';
+import { SQLiteDatabase } from '../../database/sqlite';
 import path from 'path';
 import fs from 'fs-extra';
 
 describe('AuthService', () => {
   const testDir = path.join(__dirname, '../../../__testdata__/auth');
   let authService: AuthService;
+  let db: SQLiteDatabase;
 
   beforeAll(async () => {
     await fs.ensureDir(testDir);
     await fs.emptyDir(testDir);
   });
 
-  beforeEach(() => {
-    authService = new AuthService(testDir, 'test-secret', 3600, 604800);
+  beforeEach(async () => {
+    db = new SQLiteDatabase(testDir);
+    await db.initialize();
+    authService = new AuthService(db, 'test-secret', 3600, 604800);
   });
 
   afterEach(async () => {
+    db.close();
     await fs.emptyDir(testDir);
   });
 
@@ -87,28 +92,28 @@ describe('AuthService', () => {
       const user = await authService.createUser('testuser', 'Test@Pass123', 'user', 'local');
       await authService.createApiKey(user.id, 'Key 1');
       await authService.createApiKey(user.id, 'Key 2');
-      const keys = authService.listApiKeys(user.id);
+      const keys = await authService.listApiKeys(user.id);
       expect(keys).toHaveLength(2);
     });
 
     it('should revoke API key', async () => {
       const user = await authService.createUser('testuser', 'Test@Pass123', 'user', 'local');
       const { keyId } = await authService.createApiKey(user.id, 'My Key');
-      authService.revokeApiKey(user.id, keyId);
-      const keys = authService.listApiKeys(user.id);
+      await authService.revokeApiKey(user.id, keyId);
+      const keys = await authService.listApiKeys(user.id);
       expect(keys).toHaveLength(0);
     });
 
     it('should verify valid API key', async () => {
       const user = await authService.createUser('testuser', 'Test@Pass123', 'user', 'local');
       const { apiKey } = await authService.createApiKey(user.id, 'My Key');
-      const verifiedUser = authService.verifyApiKey(apiKey);
+      const verifiedUser = await authService.verifyApiKey(apiKey);
       expect(verifiedUser).toBeDefined();
       expect(verifiedUser!.username).toBe('testuser');
     });
 
-    it('should return null for invalid API key', () => {
-      const result = authService.verifyApiKey('snx_invalid_key');
+    it('should return null for invalid API key', async () => {
+      const result = await authService.verifyApiKey('snx_invalid_key');
       expect(result).toBeNull();
     });
   });

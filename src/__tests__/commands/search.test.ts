@@ -1,7 +1,3 @@
-import path from 'path';
-import os from 'os';
-import fs from 'fs-extra';
-
 describe('Search Command Logic', () => {
   describe('Search filtering', () => {
     it('should filter capabilities by query string', () => {

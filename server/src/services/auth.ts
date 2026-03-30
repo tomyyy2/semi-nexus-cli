@@ -1,14 +1,12 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
-import fs from 'fs-extra';
-import path from 'path';
-import os from 'os';
 import crypto from 'crypto';
 import ldap from 'ldapjs';
 import {
   User, ApiKey, TokenPayload, AuthToken, LdapConfig
 } from '../types';
+import { DatabaseAdapter } from '../database';
 
 const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_REQUIRE_UPPERCASE = true;
@@ -16,46 +14,26 @@ const PASSWORD_REQUIRE_LOWERCASE = true;
 const PASSWORD_REQUIRE_NUMBER = true;
 const PASSWORD_REQUIRE_SPECIAL = true;
 
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MINUTES = 15;
+
 export class AuthService {
-  private users: Map<string, User> = new Map();
+  private db: DatabaseAdapter;
   private ldapConfig: LdapConfig | null = null;
-  private configPath: string;
   private jwtSecret: string;
   private jwtExpiresIn: number;
   private refreshTokenExpiresIn: number;
-  private loginAttempts: Map<string, { count: number; lastAttempt: Date }> = new Map();
-  private readonly MAX_LOGIN_ATTEMPTS = 5;
-  private readonly LOCKOUT_DURATION_MS = 15 * 60 * 1000;
 
   constructor(
-    dataDir: string = path.join(os.homedir(), '.semi-nexus', 'server'),
+    db: DatabaseAdapter,
     jwtSecret: string = process.env.JWT_SECRET || '',
     jwtExpiresIn: number = 3600,
     refreshTokenExpiresIn: number = 604800
   ) {
-    this.configPath = path.join(dataDir, 'users.json');
+    this.db = db;
     this.jwtSecret = jwtSecret;
     this.jwtExpiresIn = jwtExpiresIn;
     this.refreshTokenExpiresIn = refreshTokenExpiresIn;
-    this.loadUsers();
-  }
-
-  private loadUsers(): void {
-    try {
-      if (fs.existsSync(this.configPath)) {
-        const data = fs.readFileSync(this.configPath, 'utf-8');
-        const users: User[] = JSON.parse(data);
-        users.forEach(u => this.users.set(u.id, u));
-      }
-    } catch (error) {
-      console.error('Failed to load users:', error);
-    }
-  }
-
-  private saveUsers(): void {
-    const users = Array.from(this.users.values());
-    fs.ensureDirSync(path.dirname(this.configPath));
-    fs.writeFileSync(this.configPath, JSON.stringify(users, null, 2), 'utf-8');
   }
 
   configureLdap(config: LdapConfig): void {
@@ -87,72 +65,51 @@ export class AuthService {
     };
   }
 
-  private checkLoginAttempts(username: string): boolean {
-    const attempts = this.loginAttempts.get(username);
-    if (!attempts) return true;
-
-    const now = new Date();
-    if (now.getTime() - attempts.lastAttempt.getTime() > this.LOCKOUT_DURATION_MS) {
-      this.loginAttempts.delete(username);
-      return true;
-    }
-
-    return attempts.count < this.MAX_LOGIN_ATTEMPTS;
+  private async checkLoginAttempts(username: string): Promise<boolean> {
+    const failedAttempts = await this.db.getRecentFailedAttempts(username, LOCKOUT_DURATION_MINUTES);
+    return failedAttempts < MAX_LOGIN_ATTEMPTS;
   }
 
-  private recordLoginAttempt(username: string, success: boolean): void {
-    if (success) {
-      this.loginAttempts.delete(username);
-      return;
-    }
-
-    const attempts = this.loginAttempts.get(username) || { count: 0, lastAttempt: new Date() };
-    attempts.count++;
-    attempts.lastAttempt = new Date();
-    this.loginAttempts.set(username, attempts);
+  private async recordLoginAttempt(username: string, ip: string, success: boolean): Promise<void> {
+    await this.db.recordLoginAttempt(username, ip, success);
   }
 
   async login(
     username: string,
     password: string,
-    authType: 'local' | 'ldap' | 'ad' = 'local'
+    authType: 'local' | 'ldap' | 'ad' = 'local',
+    ip?: string
   ): Promise<AuthToken> {
-    if (!this.checkLoginAttempts(username)) {
+    if (!(await this.checkLoginAttempts(username))) {
       throw new Error('Account temporarily locked due to too many failed attempts. Please try again later.');
     }
 
-    let user: User | undefined;
+    let user: User | null;
 
     if (authType === 'local') {
-      user = Array.from(this.users.values()).find(
-        u => u.username === username && u.authType === 'local'
-      );
-      if (!user || !user.passwordHash) {
-        this.recordLoginAttempt(username, false);
+      user = await this.db.getUserByUsername(username);
+      if (!user || user.authType !== 'local' || !user.passwordHash) {
+        await this.recordLoginAttempt(username, ip || '', false);
         throw new Error('Invalid credentials');
       }
       const valid = await bcrypt.compare(password, user.passwordHash);
       if (!valid) {
-        this.recordLoginAttempt(username, false);
+        await this.recordLoginAttempt(username, ip || '', false);
         throw new Error('Invalid credentials');
       }
-      this.recordLoginAttempt(username, true);
+      await this.recordLoginAttempt(username, ip || '', true);
     } else {
-      user = Array.from(this.users.values()).find(
-        u => u.username === username && u.authType === authType
-      );
-      if (!user) {
+      user = await this.db.getUserByUsername(username);
+      if (!user || user.authType !== authType) {
         user = await this.ldapAuth(username, password, authType);
-        this.users.set(user.id, user);
-        this.saveUsers();
+        await this.db.createUser(user);
       } else {
         await this.ldapAuth(username, password, authType);
       }
     }
 
     user.lastLogin = new Date().toISOString();
-    this.users.set(user.id, user);
-    this.saveUsers();
+    await this.db.updateUser(user.id, { lastLogin: user.lastLogin });
 
     return this.generateTokens(user);
   }
@@ -320,8 +277,8 @@ export class AuthService {
     };
   }
 
-  generateTokensForUser(userId: string): AuthToken {
-    const user = this.users.get(userId);
+  async generateTokensForUser(userId: string): Promise<AuthToken> {
+    const user = await this.db.getUser(userId);
     if (!user) {
       throw new Error('User not found');
     }
@@ -343,9 +300,7 @@ export class AuthService {
     role: 'admin' | 'user' = 'user',
     authType: 'local' | 'ldap' | 'ad' = 'local'
   ): Promise<User> {
-    const existing = Array.from(this.users.values()).find(
-      u => u.username === username
-    );
+    const existing = await this.db.getUserByUsername(username);
     if (existing) {
       throw new Error('Username already exists');
     }
@@ -371,13 +326,12 @@ export class AuthService {
       user.passwordHash = await bcrypt.hash(password, 10);
     }
 
-    this.users.set(user.id, user);
-    this.saveUsers();
+    await this.db.createUser(user);
     return user;
   }
 
   async changePassword(userId: string, oldPassword: string, newPassword: string): Promise<void> {
-    const user = this.users.get(userId);
+    const user = await this.db.getUser(userId);
     if (!user || user.authType !== 'local') {
       throw new Error('User not found or not a local user');
     }
@@ -393,8 +347,10 @@ export class AuthService {
 
     user.passwordHash = await bcrypt.hash(newPassword, 10);
     user.updatedAt = new Date().toISOString();
-    this.users.set(user.id, user);
-    this.saveUsers();
+    await this.db.updateUser(userId, { 
+      passwordHash: user.passwordHash, 
+      updatedAt: user.updatedAt 
+    });
   }
 
   async createApiKey(
@@ -402,7 +358,7 @@ export class AuthService {
     name: string,
     expiresIn?: number
   ): Promise<{ apiKey: string; keyId: string }> {
-    const user = this.users.get(userId);
+    const user = await this.db.getUser(userId);
     if (!user) {
       throw new Error('User not found');
     }
@@ -425,74 +381,59 @@ export class AuthService {
       status: 'active'
     };
 
-    user.apiKeys.push(apiKey);
-    this.users.set(user.id, user);
-    this.saveUsers();
+    await this.db.createApiKey(apiKey);
 
     return { apiKey: rawKey, keyId };
   }
 
-  verifyApiKey(rawKey: string): User | null {
+  async verifyApiKey(rawKey: string): Promise<User | null> {
     const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
+    const result = await this.db.getApiKey(keyHash);
 
-    for (const user of this.users.values()) {
-      const apiKey = user.apiKeys.find(
-        k => k.keyHash === keyHash && k.status === 'active'
-      );
-      if (apiKey) {
-        if (apiKey.expiresAt && new Date(apiKey.expiresAt) < new Date()) {
-          return null;
-        }
-        apiKey.lastUsed = new Date().toISOString();
-        this.saveUsers();
-        return user;
-      }
+    if (!result) return null;
+
+    const { user, ...apiKey } = result;
+
+    if (apiKey.expiresAt && new Date(apiKey.expiresAt) < new Date()) {
+      return null;
     }
-    return null;
+
+    await this.db.updateApiKey(apiKey.id, { lastUsed: new Date().toISOString() });
+    
+    const fullUser = await this.db.getUser(user.id);
+    return fullUser;
   }
 
-  listApiKeys(userId: string): ApiKey[] {
-    const user = this.users.get(userId);
-    if (!user) return [];
-    return user.apiKeys.filter(k => k.status === 'active');
+  async listApiKeys(userId: string): Promise<ApiKey[]> {
+    const keys = await this.db.getApiKeysByUser(userId);
+    return keys.filter(k => k.status === 'active');
   }
 
-  revokeApiKey(userId: string, keyId: string): void {
-    const user = this.users.get(userId);
-    if (!user) return;
-
-    const apiKey = user.apiKeys.find(k => k.id === keyId);
-    if (apiKey) {
-      apiKey.status = 'revoked';
-      this.saveUsers();
-    }
+  async revokeApiKey(userId: string, keyId: string): Promise<void> {
+    await this.db.updateApiKey(keyId, { status: 'revoked' });
   }
 
-  getUser(userId: string): User | undefined {
-    const user = this.users.get(userId);
+  async getUser(userId: string): Promise<User | undefined> {
+    const user = await this.db.getUser(userId);
     if (!user) return undefined;
     const { passwordHash, ...safeUser } = user;
     return safeUser as User;
   }
 
-  getAllUsers(): User[] {
-    return Array.from(this.users.values()).map(({ passwordHash, ...user }) => user) as User[];
+  async getAllUsers(): Promise<User[]> {
+    const users = await this.db.getAllUsers();
+    return users.map(({ passwordHash, ...user }) => user) as User[];
   }
 
-  isAdmin(userId: string): boolean {
-    const user = this.users.get(userId);
+  async isAdmin(userId: string): Promise<boolean> {
+    const user = await this.db.getUser(userId);
     return user?.role === 'admin';
   }
 
-  updateUserStatus(userId: string, status: 'active' | 'inactive' | 'locked'): void {
-    const user = this.users.get(userId);
-    if (user) {
-      user.status = status;
-      user.updatedAt = new Date().toISOString();
-      this.users.set(user.id, user);
-      this.saveUsers();
-    }
+  async updateUserStatus(userId: string, status: 'active' | 'inactive' | 'locked'): Promise<void> {
+    await this.db.updateUser(userId, { 
+      status, 
+      updatedAt: new Date().toISOString() 
+    });
   }
 }
-
-export const authService = new AuthService();

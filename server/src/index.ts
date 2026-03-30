@@ -5,8 +5,11 @@ import path from 'path';
 import os from 'os';
 import fs from 'fs-extra';
 import crypto from 'crypto';
-import { authService } from './services/auth';
+import { SQLiteDatabase } from './database';
+import { AuthService } from './services/auth';
+import { RegistryService } from './services/registry';
 import { ServerConfig } from './types';
+import { setServices } from './container';
 import authRoutes from './routes/auth';
 import capabilityRoutes from './routes/capabilities';
 import adminRoutes from './routes/admin';
@@ -70,11 +73,14 @@ function getJwtSecret(): string {
   return secret;
 }
 
-class Server {
+export class Server {
   private app: express.Application;
   private config: ServerConfig;
   private dataDir: string;
   private jwtSecret: string;
+  private db: SQLiteDatabase;
+  public authService: AuthService;
+  public registryService: RegistryService;
 
   constructor(config: Partial<ServerConfig> = {}) {
     this.jwtSecret = getJwtSecret();
@@ -82,9 +88,30 @@ class Server {
     this.dataDir = this.config.dataDir;
     this.app = express();
 
+    this.ensureDataDir();
+    
+    this.db = new SQLiteDatabase(this.dataDir);
+    
+    this.authService = new AuthService(
+      this.db,
+      this.jwtSecret,
+      this.config.jwtExpiresIn,
+      this.config.refreshTokenExpiresIn
+    );
+    
+    this.registryService = new RegistryService(
+      this.db,
+      path.join(this.dataDir, 'registry')
+    );
+
+    setServices({
+      db: this.db,
+      authService: this.authService,
+      registryService: this.registryService
+    });
+
     this.setupMiddleware();
     this.setupRoutes();
-    this.ensureDataDir();
   }
 
   private setupMiddleware(): void {
@@ -114,7 +141,6 @@ class Server {
   private ensureDataDir(): void {
     const dirs = [
       this.dataDir,
-      path.join(this.dataDir, 'users'),
       path.join(this.dataDir, 'registry'),
       path.join(this.dataDir, 'registry', 'packages'),
       path.join(this.dataDir, 'audit'),
@@ -126,13 +152,13 @@ class Server {
 
   private async createDefaultAdmin(): Promise<void> {
     try {
-      const adminExists = Array.from((authService as any).users.values())
-        .some((u: any) => u.role === 'admin');
+      const users = await this.authService.getAllUsers();
+      const adminExists = users.some(u => u.role === 'admin');
 
       if (!adminExists) {
         const adminPassword = process.env.ADMIN_PASSWORD || generateSecurePassword(16);
         
-        await authService.createUser('admin', adminPassword, 'admin', 'local');
+        await this.authService.createUser('admin', adminPassword, 'admin', 'local');
         
         console.log(chalk.green('\n✓ Default admin user created:'));
         console.log(chalk.cyan('  Username: ') + 'admin');
@@ -150,6 +176,7 @@ class Server {
   }
 
   async start(): Promise<void> {
+    await this.db.initialize();
     await this.createDefaultAdmin();
     
     return new Promise((resolve) => {
@@ -159,10 +186,15 @@ class Server {
         console.log(chalk.bold('╠════════════════════════════════════════════╣'));
         console.log(chalk.green(`║  Server: http://${this.config.host}:${this.config.port}`));
         console.log(chalk.green(`║  Data:   ${this.dataDir}`));
+        console.log(chalk.green(`║  DB:     ${path.join(this.dataDir, 'semi-nexus.db')}`));
         console.log(chalk.bold('╚════════════════════════════════════════════╝\n'));
         resolve();
       });
     });
+  }
+
+  close(): void {
+    this.db.close();
   }
 }
 
@@ -172,5 +204,3 @@ async function main(): Promise<void> {
 }
 
 main().catch(console.error);
-
-export { Server };

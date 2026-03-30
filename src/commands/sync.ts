@@ -3,10 +3,8 @@ import fs from 'fs-extra';
 import path from 'path';
 import os from 'os';
 import yaml from 'yaml';
-import inquirer from 'inquirer';
 import { registry } from '../api/registry';
 import { agentDetector } from '../api/agents';
-import { client } from '../api/client';
 
 export async function sync(options: { 
   to?: string; 

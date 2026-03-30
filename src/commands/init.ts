@@ -4,7 +4,6 @@ import path from 'path';
 import os from 'os';
 import yaml from 'yaml';
 import inquirer from 'inquirer';
-import { client } from '../api/client';
 
 export async function init(options: { server?: string; force?: boolean } = {}): Promise<void> {
   console.log(chalk.blue('\n🚀 Initializing SemiNexus CLI...\n'));

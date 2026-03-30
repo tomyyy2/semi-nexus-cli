@@ -22,7 +22,8 @@ export async function install(name: string, options: {
   
   try {
     capability = await client.getCapability(name);
-  } catch (error) {
+  } catch {
+    // Ignore - will try local registry
   }
 
   if (!capability) {

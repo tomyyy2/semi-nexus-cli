@@ -24,7 +24,6 @@ describe('Install Command Logic', () => {
     });
 
     it('should create installation directory if not exists', async () => {
-      const testDir = path.join(__dirname, 'test-install');
       expect(true).toBe(true);
     });
   });
@@ -45,11 +44,6 @@ describe('Install Command Logic', () => {
     it('should verify subscription before install', () => {
       const subscription = { capabilityId: '1', status: 'active' };
       expect(subscription.status).toBe('active');
-    });
-
-    it('should reject installation without subscription', () => {
-      const subscription = null;
-      expect(subscription).toBeNull();
     });
   });
 });

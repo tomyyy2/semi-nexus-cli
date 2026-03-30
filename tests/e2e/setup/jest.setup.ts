@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { testServer } from './test-server';
 import { testCli } from './test-cli';
 

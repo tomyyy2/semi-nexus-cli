@@ -13,11 +13,9 @@ export async function status(): Promise<void> {
   console.log(chalk.cyan('  URL: ') + config.server.url);
 
   let serverStatus = 'Unknown';
-  let serverConnected = false;
   try {
     const statusInfo = await client.getStatus();
     serverStatus = statusInfo.connected ? chalk.green('Connected') : chalk.red('Disconnected');
-    serverConnected = statusInfo.connected;
   } catch (error) {
     serverStatus = chalk.red('Disconnected');
   }

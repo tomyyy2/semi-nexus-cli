@@ -1,6 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { authService } from '../services/auth';
-import { registryService } from '../services/registry';
+import { getAuthService, getRegistryService, getDatabase } from '../container';
 import { scannerService } from '../services/scanner';
 import { authenticate, requireAdmin } from '../middleware/auth';
 import { auditService } from '../services/audit';
@@ -9,8 +8,75 @@ const router = Router();
 
 router.use(authenticate, requireAdmin);
 
+// Scan routes (more specific, must come before /capabilities/:id)
+router.post('/scan/:id', async (req: Request, res: Response) => {
+  try {
+    const registryService = getRegistryService();
+    const capability = await registryService.getCapability(req.params.id);
+
+    if (!capability) {
+      res.status(404).json({ error: 'Capability not found' });
+      return;
+    }
+
+    await registryService.updateSecurityScan(req.params.id, {
+      status: 'scanning',
+      startedAt: new Date().toISOString(),
+      issues: [],
+      scannerVersion: '1.0.0'
+    });
+
+    auditService.log(
+      req.user!.id,
+      'scan_start',
+      'capability',
+      req.params.id,
+      undefined,
+      req.ip
+    );
+
+    scannerService.scan(req.params.id).then(async (scan) => {
+      await registryService.updateSecurityScan(req.params.id, scan);
+      auditService.log(
+        req.user!.id,
+        'scan_complete',
+        'capability',
+        req.params.id,
+        { status: scan.status, issues: scan.issues.length },
+        req.ip
+      );
+    });
+
+    res.json({ message: 'Scan started', status: 'scanning' });
+  } catch (error) {
+    res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+router.get('/scan/:id', async (req: Request, res: Response) => {
+  try {
+    const registryService = getRegistryService();
+    const scan = scannerService.getScanStatus(req.params.id);
+    const capability = await registryService.getCapability(req.params.id);
+
+    if (!capability) {
+      res.status(404).json({ error: 'Capability not found' });
+      return;
+    }
+
+    res.json({
+      scan,
+      capabilityScan: capability.securityScan
+    });
+  } catch (error) {
+    res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// Capability routes
 router.post('/capabilities', async (req: Request, res: Response) => {
   try {
+    const registryService = getRegistryService();
     const capability = await registryService.createCapability(req.body);
 
     auditService.log(
@@ -28,137 +94,11 @@ router.post('/capabilities', async (req: Request, res: Response) => {
   }
 });
 
-router.post('/capabilities/:id/scan', async (req: Request, res: Response) => {
-  try {
-    const capability = registryService.getCapability(req.params.id);
-
-    if (!capability) {
-      res.status(404).json({ error: 'Capability not found' });
-      return;
-    }
-
-    registryService.updateSecurityScan(req.params.id, {
-      status: 'scanning',
-      startedAt: new Date().toISOString(),
-      issues: [],
-      scannerVersion: '1.0.0'
-    });
-
-    auditService.log(
-      req.user!.id,
-      'scan_start',
-      'capability',
-      req.params.id,
-      undefined,
-      req.ip
-    );
-
-    scannerService.scan(req.params.id).then(scan => {
-      auditService.log(
-        req.user!.id,
-        'scan_complete',
-        'capability',
-        req.params.id,
-        { status: scan.status, issues: scan.issues.length },
-        req.ip
-      );
-    });
-
-    res.json({ message: 'Scan started', status: 'scanning' });
-  } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
-  }
-});
-
-router.get('/capabilities/:id/scan', async (req: Request, res: Response) => {
-  try {
-    const scan = scannerService.getScanStatus(req.params.id);
-    const capability = registryService.getCapability(req.params.id);
-
-    if (!capability) {
-      res.status(404).json({ error: 'Capability not found' });
-      return;
-    }
-
-    res.json({
-      scan,
-      capabilityScan: capability.securityScan
-    });
-  } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
-  }
-});
-
-router.post('/capabilities/:id/approve', async (req: Request, res: Response) => {
-  try {
-    const capability = registryService.getCapability(req.params.id);
-
-    if (!capability) {
-      res.status(404).json({ error: 'Capability not found' });
-      return;
-    }
-
-    const { comment } = req.body;
-
-    registryService.updateCompliance(req.params.id, {
-      status: 'approved',
-      reviewedBy: req.user!.id,
-      reviewedAt: new Date().toISOString(),
-      comment
-    });
-
-    auditService.log(
-      req.user!.id,
-      'approve',
-      'capability',
-      req.params.id,
-      { comment },
-      req.ip
-    );
-
-    res.json({ message: 'Capability approved', status: 'approved' });
-  } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
-  }
-});
-
-router.post('/capabilities/:id/reject', async (req: Request, res: Response) => {
-  try {
-    const capability = registryService.getCapability(req.params.id);
-
-    if (!capability) {
-      res.status(404).json({ error: 'Capability not found' });
-      return;
-    }
-
-    const { comment } = req.body;
-
-    registryService.updateCompliance(req.params.id, {
-      status: 'rejected',
-      reviewedBy: req.user!.id,
-      reviewedAt: new Date().toISOString(),
-      comment
-    });
-
-    auditService.log(
-      req.user!.id,
-      'reject',
-      'capability',
-      req.params.id,
-      { comment },
-      req.ip
-    );
-
-    res.json({ message: 'Capability rejected', status: 'rejected' });
-  } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
-  }
-});
-
 router.get('/capabilities', async (req: Request, res: Response) => {
   try {
+    const registryService = getRegistryService();
     const { status } = req.query;
-    const capabilities = registryService.getCapabilities({
+    const capabilities = await registryService.getCapabilities({
       status: status as string
     });
 
@@ -168,13 +108,69 @@ router.get('/capabilities', async (req: Request, res: Response) => {
   }
 });
 
-router.get('/users', (req: Request, res: Response) => {
-  const users = authService.getAllUsers();
+router.put('/capabilities/:id', async (req: Request, res: Response) => {
+  try {
+    const registryService = getRegistryService();
+    const capability = await registryService.updateCapability(req.params.id, req.body);
+
+    if (!capability) {
+      res.status(404).json({ error: 'Capability not found' });
+      return;
+    }
+
+    auditService.log(
+      req.user!.id,
+      'update',
+      'capability',
+      req.params.id,
+      { updates: req.body },
+      req.ip
+    );
+
+    res.json(capability);
+  } catch (error) {
+    res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+router.delete('/capabilities/:id', async (req: Request, res: Response) => {
+  try {
+    const db = getDatabase();
+    const registryService = getRegistryService();
+    const capability = await registryService.getCapability(req.params.id);
+
+    if (!capability) {
+      res.status(404).json({ error: 'Capability not found' });
+      return;
+    }
+
+    await db.deleteCapability(req.params.id);
+
+    auditService.log(
+      req.user!.id,
+      'delete',
+      'capability',
+      req.params.id,
+      { name: capability.name },
+      req.ip
+    );
+
+    res.json({ message: 'Capability deleted', id: req.params.id });
+  } catch (error) {
+    res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// User routes
+router.get('/users', async (req: Request, res: Response) => {
+  const authService = getAuthService();
+  const users = await authService.getAllUsers();
   res.json(users);
 });
 
 router.post('/users', async (req: Request, res: Response) => {
   try {
+    const authService = getAuthService();
     const { username, password, role, authType } = req.body;
 
     if (!username || !password) {
@@ -204,8 +200,88 @@ router.post('/users', async (req: Request, res: Response) => {
   }
 });
 
-router.post('/users/:id/apikey', async (req: Request, res: Response) => {
+router.put('/users/:id/status', async (req: Request, res: Response) => {
   try {
+    const authService = getAuthService();
+    const db = getDatabase();
+    const { status } = req.body;
+
+    if (!status || !['active', 'inactive', 'locked'].includes(status)) {
+      res.status(400).json({ error: 'Valid status required (active, inactive, locked)' });
+      return;
+    }
+
+    const user = await db.getUser(req.params.id);
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    await authService.updateUserStatus(req.params.id, status as 'active' | 'inactive' | 'locked');
+
+    const updatedUser = await db.getUser(req.params.id);
+
+    auditService.log(
+      req.user!.id,
+      'update_user_status',
+      'user',
+      req.params.id,
+      { status },
+      req.ip
+    );
+
+    res.json(updatedUser);
+  } catch (error) {
+    res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+router.put('/users/:id', async (req: Request, res: Response) => {
+  try {
+    const db = getDatabase();
+    const { role } = req.body;
+
+    const user = await db.getUser(req.params.id);
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    if (role) {
+      await db.updateUser(req.params.id, { role });
+    }
+
+    const updatedUser = await db.getUser(req.params.id);
+
+    auditService.log(
+      req.user!.id,
+      'update_user',
+      'user',
+      req.params.id,
+      { role },
+      req.ip
+    );
+
+    res.json(updatedUser);
+  } catch (error) {
+    res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// API Key routes (more specific patterns first)
+router.get('/users/:id/api-keys', async (req: Request, res: Response) => {
+  try {
+    const authService = getAuthService();
+    const keys = await authService.listApiKeys(req.params.id);
+    res.json(keys);
+  } catch (error) {
+    res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+router.post('/users/:id/api-keys', async (req: Request, res: Response) => {
+  try {
+    const authService = getAuthService();
     const { name, expiresIn } = req.body;
 
     const { apiKey, keyId } = await authService.createApiKey(
@@ -223,12 +299,33 @@ router.post('/users/:id/apikey', async (req: Request, res: Response) => {
       req.ip
     );
 
-    res.json({ apiKey, keyId, name, createdAt: new Date().toISOString() });
+    res.status(201).json({ apiKey, keyId, name, createdAt: new Date().toISOString() });
   } catch (error) {
     res.status(500).json({ error: (error as Error).message });
   }
 });
 
+router.delete('/users/:userId/api-keys/:keyId', async (req: Request, res: Response) => {
+  try {
+    const authService = getAuthService();
+    await authService.revokeApiKey(req.params.userId, req.params.keyId);
+
+    auditService.log(
+      req.user!.id,
+      'revoke_apikey',
+      'apikey',
+      req.params.keyId,
+      { userId: req.params.userId },
+      req.ip
+    );
+
+    res.json({ message: 'API key revoked' });
+  } catch (error) {
+    res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// Audit routes
 router.get('/audit', async (req: Request, res: Response) => {
   try {
     const { userId, action, resource, startDate, endDate, limit, offset } = req.query;
@@ -244,6 +341,22 @@ router.get('/audit', async (req: Request, res: Response) => {
     });
 
     res.json(logs);
+  } catch (error) {
+    res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// Test-only route for resetting test state
+router.post('/reset-test-state', async (req: Request, res: Response) => {
+  if (process.env.NODE_ENV === 'production') {
+    res.status(403).json({ error: 'Not available in production' });
+    return;
+  }
+  
+  try {
+    const db = getDatabase();
+    await db.clearTestData();
+    res.json({ message: 'Test state reset successfully' });
   } catch (error) {
     res.status(500).json({ error: (error as Error).message });
   }
