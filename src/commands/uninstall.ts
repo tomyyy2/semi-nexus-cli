@@ -66,8 +66,9 @@ export async function uninstall(name: string, options: { yes?: boolean } = {}): 
       console.log(chalk.gray(`  Cleaned up syncs from: ${cap.syncedAgents.join(', ')}`));
     }
 
-  } catch (error: any) {
-    console.log(chalk.red(`\n✗ Uninstall failed: ${error.message}`));
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.log(chalk.red(`\n✗ Uninstall failed: ${err.message}`));
     process.exit(1);
   }
 }

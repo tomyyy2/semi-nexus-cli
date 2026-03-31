@@ -42,8 +42,9 @@ export async function subscribe(name: string, options: { version?: string } = {}
     console.log(chalk.gray('  • ') + chalk.yellow(`semi-nexus info ${name}`) + chalk.gray(' - View details'));
     console.log();
 
-  } catch (error: any) {
-    const errorMessage = error.response?.data?.error || error.message;
+  } catch (error: unknown) {
+    const err = error as Error & { response?: { data?: { error?: string } } };
+    const errorMessage = err.response?.data?.error || err.message;
     console.log(chalk.red(`\n✗ Subscription failed: ${errorMessage}`));
     process.exit(1);
   }
@@ -76,7 +77,8 @@ export async function listSubscriptions(): Promise<void> {
         console.log();
       }
     }
-  } catch (error: any) {
-    console.log(chalk.red(`Failed to list subscriptions: ${error.message}`));
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.log(chalk.red(`Failed to list subscriptions: ${err.message}`));
   }
 }

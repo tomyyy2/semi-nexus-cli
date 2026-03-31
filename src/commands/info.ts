@@ -56,22 +56,22 @@ export async function info(name: string): Promise<void> {
   console.log(chalk.gray(`    Rating: ${'★'.repeat(Math.round(capability.statistics.rating))}${'☆'.repeat(5 - Math.round(capability.statistics.rating))} (${capability.statistics.rating}/5, ${capability.statistics.ratingCount} reviews)`));
   console.log();
 
-  const anyCap = capability as any;
-  if (anyCap.author) {
+  const capabilityWithAuthor = capability as typeof capability & { author?: { name?: string; email?: string }; repository?: string; homepage?: string };
+  if (capabilityWithAuthor.author) {
     console.log(chalk.cyan('  Author:'));
-    console.log(chalk.gray(`    Name: ${anyCap.author.name || 'Unknown'}`));
-    if (anyCap.author.email) {
-      console.log(chalk.gray(`    Email: ${anyCap.author.email}`));
+    console.log(chalk.gray(`    Name: ${capabilityWithAuthor.author.name || 'Unknown'}`));
+    if (capabilityWithAuthor.author.email) {
+      console.log(chalk.gray(`    Email: ${capabilityWithAuthor.author.email}`));
     }
     console.log();
   }
 
-  if (anyCap.repository) {
-    console.log(chalk.cyan('  Repository: ') + anyCap.repository);
+  if (capabilityWithAuthor.repository) {
+    console.log(chalk.cyan('  Repository: ') + capabilityWithAuthor.repository);
   }
 
-  if (anyCap.homepage) {
-    console.log(chalk.cyan('  Homepage: ') + anyCap.homepage);
+  if (capabilityWithAuthor.homepage) {
+    console.log(chalk.cyan('  Homepage: ') + capabilityWithAuthor.homepage);
   }
 
   console.log();

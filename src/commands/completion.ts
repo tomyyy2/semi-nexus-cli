@@ -108,8 +108,9 @@ async function installCompletion(): Promise<void> {
     }
     console.log();
     
-  } catch (error: any) {
-    console.log(chalk.red(`✗ Failed to install: ${error.message}`));
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.log(chalk.red(`✗ Failed to install: ${err.message}`));
     console.log(chalk.yellow('\nYou can manually add the completion script:'));
     console.log(chalk.gray(`  semi-nexus completion ${shell} >> <completion-file>`));
   }

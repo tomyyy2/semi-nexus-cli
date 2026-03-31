@@ -113,7 +113,6 @@ export async function install(name: string, options: {
       try {
         packageContent = await client.downloadCapability(capability.id, version);
       } catch (error: unknown) {
-        const err = error as Error;
         console.log(chalk.yellow('⚠ Could not download from server, using local cache.'));
       }
     }

@@ -66,7 +66,7 @@ export class SemiNexusClient {
     this.api.interceptors.response.use(
       (response) => response,
       async (error: AxiosError) => {
-        const originalRequest = error.config as { _retry?: boolean } & any;
+        const originalRequest = error.config as { _retry?: boolean } & Record<string, unknown>;
         if (error.response?.status === 401 && !originalRequest._retry && this.config?.auth?.refreshToken) {
           originalRequest._retry = true;
           try {
@@ -231,7 +231,7 @@ export class SemiNexusClient {
     }
   }
 
-  async subscribeCapability(capabilityId: string, version?: string): Promise<any> {
+  async subscribeCapability(capabilityId: string, version?: string): Promise<{ id: string; capabilityId: string; version: string; status: string; subscribedAt: string; expiresAt?: string }> {
     const response = await this.api.post(`/capabilities/${capabilityId}/subscribe`, { version });
     return response.data;
   }
@@ -240,16 +240,16 @@ export class SemiNexusClient {
     await this.api.delete(`/capabilities/${capabilityId}/subscribe`);
   }
 
-  async downloadCapability(capabilityId: string, version?: string): Promise<any> {
+  async downloadCapability(capabilityId: string, version?: string): Promise<Buffer> {
     const params = version ? { version } : {};
     const response = await this.api.get(`/capabilities/${capabilityId}/download`, { 
       params,
-      responseType: 'json'
+      responseType: 'arraybuffer'
     });
-    return response.data;
+    return response.data as Buffer;
   }
 
-  async getSubscriptions(): Promise<any[]> {
+  async getSubscriptions(): Promise<Array<{ id: string; capabilityId: string; version: string; status: string; subscribedAt: string; expiresAt?: string; capability?: Capability }>> {
     const response = await this.api.get('/capabilities/subscriptions');
     return response.data;
   }
@@ -272,7 +272,7 @@ export class SemiNexusClient {
     }
   }
 
-  async getCurrentUser(): Promise<any> {
+  async getCurrentUser(): Promise<{ id: string; username: string; email?: string; role: string }> {
     const response = await this.api.get('/auth/me');
     return response.data;
   }

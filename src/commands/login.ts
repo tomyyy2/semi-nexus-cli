@@ -19,8 +19,9 @@ export async function login(options: { server?: string; apikey?: string; authTyp
       await client.loginWithApiKey(options.apikey);
       console.log(chalk.green('\n✓ Login successful with API Key!'));
       console.log(chalk.blue('  Run: ') + chalk.yellow('semi-nexus status') + chalk.blue(' to verify'));
-    } catch (error: any) {
-      console.log(chalk.red(`\n✗ Login failed: ${error.response?.data?.error || error.message}`));
+    } catch (error: unknown) {
+      const err = error as Error & { response?: { data?: { error?: string } } };
+      console.log(chalk.red(`\n✗ Login failed: ${err.response?.data?.error || err.message}`));
       process.exit(1);
     }
     return;
@@ -67,8 +68,9 @@ export async function login(options: { server?: string; apikey?: string; authTyp
     console.log(chalk.blue('\nRun: ') + chalk.yellow('semi-nexus status') + chalk.blue(' to verify'));
     console.log(chalk.blue('Run: ') + chalk.yellow('semi-nexus search <query>') + chalk.blue(' to find capabilities'));
     
-  } catch (error: any) {
-    const errorMessage = error.response?.data?.error || error.message;
+  } catch (error: unknown) {
+    const err = error as Error & { response?: { data?: { error?: string } } };
+    const errorMessage = err.response?.data?.error || err.message;
     console.log(chalk.red(`\n✗ Login failed: ${errorMessage}`));
     
     if (errorMessage.includes('locked')) {

@@ -17,8 +17,9 @@ export async function logout(): Promise<void> {
     await client.logout();
     console.log(chalk.green(`✓ Logged out successfully.`));
     console.log(chalk.gray(`  User: ${username}`));
-  } catch (error: any) {
-    console.log(chalk.green(`✓ Logged out locally.`));
-    console.log(chalk.gray(`  (Server notification failed: ${error.message})`));
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.log(chalk.green(`✓ Logged out successfully.`));
+    console.log(chalk.gray(`  (Server notification failed: ${err.message})`));
   }
 }

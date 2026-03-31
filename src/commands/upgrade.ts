@@ -95,8 +95,8 @@ async function upgradeCapability(name: string): Promise<void> {
       description: latest.description,
       installedAt: new Date().toISOString(),
       upgradedFrom: cap.version,
-      author: (latest as any).author?.name || 'Unknown',
-      repository: (latest as any).repository || 'N/A',
+      author: latest.author?.name || 'Unknown',
+      repository: latest.repository || 'N/A',
       tags: latest.tags,
       category: latest.category
     };
@@ -114,7 +114,8 @@ async function upgradeCapability(name: string): Promise<void> {
 
     console.log(chalk.green(`  ✓ Upgraded ${name} to v${latest.version}`));
 
-  } catch (error: any) {
-    console.log(chalk.red(`  ✗ Failed to upgrade ${name}: ${error.message}`));
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.log(chalk.red(`  ✗ Failed to upgrade ${name}: ${err.message}`));
   }
 }

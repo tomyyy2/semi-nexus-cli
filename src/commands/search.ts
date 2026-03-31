@@ -17,12 +17,13 @@ export async function search(
 
   try {
     results = await client.searchCapabilities(query, { type: options.type, tag: options.tag });
-  } catch (error: any) {
-    if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+  } catch (error: unknown) {
+    const err = error as Error & { code?: string };
+    if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND') {
       console.log(chalk.yellow('⚠ Cannot connect to server. Use --offline for local cache.'));
       return;
     }
-    throw error;
+    throw err;
   }
 
   if (results.length === 0) {

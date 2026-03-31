@@ -144,7 +144,7 @@ async function configureOpenClaw(capabilities: { name: string; syncedAgents: str
   const configPath = path.join(os.homedir(), '.openclaw', 'config.yaml');
   
   try {
-    let config: Record<string, any> = {};
+    let config: Record<string, unknown> = {};
     
     if (await fs.pathExists(configPath)) {
       const content = await fs.readFile(configPath, 'utf-8');
