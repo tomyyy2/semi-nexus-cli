@@ -1,4 +1,4 @@
-import axios, { AxiosInstance, AxiosError } from 'axios';
+import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import fs from 'fs-extra';
 import path from 'path';
 import yaml from 'yaml';
@@ -66,12 +66,12 @@ export class SemiNexusClient {
     this.api.interceptors.response.use(
       (response) => response,
       async (error: AxiosError) => {
-        const originalRequest = error.config as { _retry?: boolean } & Record<string, unknown>;
+        const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
         if (error.response?.status === 401 && !originalRequest._retry && this.config?.auth?.refreshToken) {
           originalRequest._retry = true;
           try {
             const tokens = await this.refreshToken(this.config.auth.refreshToken);
-            originalRequest.headers.Authorization = `Bearer ${tokens.accessToken}`;
+            (originalRequest.headers as any).Authorization = `Bearer ${tokens.accessToken}`;
             return this.api(originalRequest);
           } catch (refreshError) {
             this.clearAuth();

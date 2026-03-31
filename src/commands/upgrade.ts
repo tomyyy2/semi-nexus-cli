@@ -95,8 +95,8 @@ async function upgradeCapability(name: string): Promise<void> {
       description: latest.description,
       installedAt: new Date().toISOString(),
       upgradedFrom: cap.version,
-      author: latest.author?.name || 'Unknown',
-      repository: latest.repository || 'N/A',
+      author: (latest as any).author?.name || 'Unknown',
+      repository: (latest as any).repository || 'N/A',
       tags: latest.tags,
       category: latest.category
     };

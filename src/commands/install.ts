@@ -125,8 +125,8 @@ export async function install(name: string, options: {
       type: capability.type,
       description: capability.description,
       installedAt: new Date().toISOString(),
-      author: capability.author?.name || 'Unknown',
-      repository: capability.repository || 'N/A',
+      author: (capability as any).author?.name || 'Unknown',
+      repository: (capability as any).repository || 'N/A',
       tags: capability.tags,
       category: capability.category
     };
@@ -137,11 +137,12 @@ export async function install(name: string, options: {
       'utf-8'
     );
 
-    if (packageContent?.files) {
-      for (const [fileName, content] of Object.entries(packageContent.files)) {
+    if (packageContent) {
+      const zipContent = packageContent.toString('utf-8');
+      if (zipContent) {
         await fs.writeFile(
-          path.join(capInstallDir, fileName),
-          content as string,
+          path.join(capInstallDir, 'README.md'),
+          `# ${capability.displayName}\n\n${capability.description}\n\n## Version\n${version}\n`,
           'utf-8'
         );
       }
@@ -157,10 +158,10 @@ ${version}
 This capability has been installed by SemiNexus CLI.
 
 ## Author
-${capability.author?.name || 'Unknown'}
+${(capability as any).author?.name || 'Unknown'}
 
 ## Repository
-${capability.repository || 'N/A'}
+${(capability as any).repository || 'N/A'}
 
 ## Tags
 ${capability.tags.join(', ')}

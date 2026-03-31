@@ -93,7 +93,7 @@ export async function quickstart(): Promise<void> {
       let count = 0;
       for (const cap of installed) {
         try {
-          await syncToAgent(cap, agent);
+          await syncToAgent(cap as any, agent);
           count++;
         } catch (error) {
           console.log(chalk.red(`  ✗ ${agent.name}: sync failed`));
@@ -225,7 +225,7 @@ interface AgentInfo {
 async function getRecommendedSkills(): Promise<Capability[]> {
   try {
     const results = await client.searchCapabilities('self-improvement');
-    return results.slice(0, 2);
+    return results.slice(0, 2) as unknown as Capability[];
   } catch (error) {
     return [];
   }

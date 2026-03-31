@@ -26,7 +26,7 @@ export async function initI18n(): Promise<void> {
   
   const localesDir = await getLocalesDir();
   
-  const resources: Record<string, Record<string, unknown>> = {};
+  const resources: any = {};
   
   const zhCNPath = path.join(localesDir, 'zh-CN.json');
   const enUSPath = path.join(localesDir, 'en-US.json');
@@ -55,7 +55,7 @@ export async function initI18n(): Promise<void> {
   initialized = true;
 }
 
-export function t(key: string, options?: Record<string, unknown>): string {
+export function t(key: string, options?: any): any {
   return i18next.t(key, options);
 }
 

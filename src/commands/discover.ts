@@ -79,8 +79,9 @@ export async function discover(options: { install?: boolean } = {}): Promise<voi
   for (const cap of capabilities) {
     console.log(chalk.white.bold(cap.displayName || cap.name));
     console.log(chalk.gray(`  [${cap.type}] v${cap.version}`));
-    console.log(chalk.gray(`  ${cap.description?.substring(0, 80)}${cap.description?.length > 80 ? '...' : ''}`));
-    if (cap.tags?.length > 0) {
+    const desc = cap.description || '';
+    console.log(chalk.gray(`  ${desc.substring(0, 80)}${desc.length > 80 ? '...' : ''}`));
+    if (cap.tags && cap.tags.length > 0) {
       console.log(chalk.cyan(`  Tags: ${cap.tags.slice(0, 5).join(', ')}`));
     }
     console.log();
@@ -148,12 +149,14 @@ export async function discover(options: { install?: boolean } = {}): Promise<voi
         console.log(chalk.cyan('Display Name: ') + (cap.displayName || cap.name));
         console.log(chalk.cyan('Type: ') + cap.type);
         console.log(chalk.cyan('Version: ') + cap.version);
-        console.log(chalk.cyan('Description: ') + cap.description);
-        if (cap.tags?.length > 0) {
+        console.log(chalk.cyan('Description: ') + (cap.description || ''));
+        if (cap.tags && cap.tags.length > 0) {
           console.log(chalk.cyan('Tags: ') + cap.tags.join(', '));
         }
-        if (cap.author) {
-          console.log(chalk.cyan('Author: ') + (cap.author.name || cap.author));
+        if (cap.author && typeof cap.author === 'object') {
+          console.log(chalk.cyan('Author: ') + (cap.author.name || 'Unknown'));
+        } else if (cap.author) {
+          console.log(chalk.cyan('Author: ') + cap.author);
         }
         if (cap.repository) {
           console.log(chalk.cyan('Repository: ') + cap.repository);
