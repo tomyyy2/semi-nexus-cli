@@ -3,6 +3,18 @@ import inquirer from 'inquirer';
 import { client } from '../api/client';
 import { install } from './install';
 
+interface Capability {
+  id: string;
+  name: string;
+  displayName?: string;
+  type: string;
+  version: string;
+  description?: string;
+  tags?: string[];
+  author?: { name: string } | string;
+  repository?: string;
+}
+
 export async function discover(options: { install?: boolean } = {}): Promise<void> {
   console.log(chalk.blue('\n🔍 Discovering capabilities...\n'));
 
@@ -34,7 +46,7 @@ export async function discover(options: { install?: boolean } = {}): Promise<voi
     }
   ]);
 
-  let capabilities: any[] = [];
+  let capabilities: Capability[] = [];
 
   try {
     switch (answers.category) {
@@ -50,8 +62,9 @@ export async function discover(options: { install?: boolean } = {}): Promise<voi
       default:
         capabilities = await getAll();
     }
-  } catch (error: any) {
-    console.log(chalk.red(`\n✗ Failed to fetch capabilities: ${error.message}`));
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.log(chalk.red(`\n✗ Failed to fetch capabilities: ${err.message}`));
     process.exit(1);
   }
 
@@ -159,7 +172,7 @@ export async function discover(options: { install?: boolean } = {}): Promise<voi
   }
 }
 
-async function getTrending(): Promise<any[]> {
+async function getTrending(): Promise<Capability[]> {
   try {
     const results = await client.searchCapabilities('');
     return results.slice(0, 10);
@@ -168,7 +181,7 @@ async function getTrending(): Promise<any[]> {
   }
 }
 
-async function getFeatured(): Promise<any[]> {
+async function getFeatured(): Promise<Capability[]> {
   try {
     const results = await client.searchCapabilities('');
     return results.slice(0, 10);
@@ -177,7 +190,7 @@ async function getFeatured(): Promise<any[]> {
   }
 }
 
-async function getNew(): Promise<any[]> {
+async function getNew(): Promise<Capability[]> {
   try {
     const results = await client.searchCapabilities('');
     return results.slice(0, 10);
@@ -186,7 +199,7 @@ async function getNew(): Promise<any[]> {
   }
 }
 
-async function getAll(): Promise<any[]> {
+async function getAll(): Promise<Capability[]> {
   try {
     const results = await client.searchCapabilities('');
     return results.slice(0, 20);
@@ -195,7 +208,7 @@ async function getAll(): Promise<any[]> {
   }
 }
 
-function getMockCapabilities(_type: string): any[] {
+function getMockCapabilities(_type: string): Capability[] {
   const mockCapabilities = [
     {
       id: 'cap_mock_001',

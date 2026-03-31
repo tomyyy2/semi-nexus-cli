@@ -66,7 +66,7 @@ export class SemiNexusClient {
     this.api.interceptors.response.use(
       (response) => response,
       async (error: AxiosError) => {
-        const originalRequest = error.config as any;
+        const originalRequest = error.config as { _retry?: boolean } & any;
         if (error.response?.status === 401 && !originalRequest._retry && this.config?.auth?.refreshToken) {
           originalRequest._retry = true;
           try {
@@ -214,7 +214,7 @@ export class SemiNexusClient {
   }
 
   async searchCapabilities(query: string, options: { type?: string; tag?: string } = {}): Promise<Capability[]> {
-    const params: any = { query };
+    const params: Record<string, string> = { query };
     if (options.type) params.type = options.type;
     if (options.tag) params.tag = options.tag;
     

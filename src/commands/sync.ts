@@ -108,8 +108,9 @@ export async function sync(options: {
           syncedToAgents.push(agent.id);
         }
 
-      } catch (error: any) {
-        console.log(chalk.red `  ✗ ${cap.name}: ${error.message}`);
+      } catch (error: unknown) {
+        const err = error as Error;
+        console.log(chalk.red `  ✗ ${cap.name}: ${err.message}`);
         failCount++;
       }
     }
@@ -139,11 +140,11 @@ async function verifySkillFile(dir: string): Promise<string | null> {
   return null;
 }
 
-async function configureOpenClaw(capabilities: any[]): Promise<void> {
+async function configureOpenClaw(capabilities: { name: string; syncedAgents: string[] }[]): Promise<void> {
   const configPath = path.join(os.homedir(), '.openclaw', 'config.yaml');
   
   try {
-    let config: any = {};
+    let config: Record<string, any> = {};
     
     if (await fs.pathExists(configPath)) {
       const content = await fs.readFile(configPath, 'utf-8');
@@ -168,12 +169,22 @@ async function configureOpenClaw(capabilities: any[]): Promise<void> {
       console.log(chalk.gray `  Added ${added} plugin(s) to enabled list`);
       console.log(chalk.gray `  Config: ${configPath}`);
     }
-  } catch (error: any) {
-    console.log(chalk.yellow `\n⚠ Could not configure OpenClaw: ${error.message}`);
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.log(chalk.yellow `\n⚠ Could not configure OpenClaw: ${err.message}`);
   }
 }
 
-function printUsageGuide(agents: any[]): void {
+interface AgentInfo {
+  id: string;
+  name: string;
+  detected: boolean;
+  skillPath: string;
+  syncMode: 'symlink' | 'copy';
+  installPath: string;
+}
+
+function printUsageGuide(agents: AgentInfo[]): void {
   console.log(chalk.bold('📚 How to use your capabilities:\n'));
   
   const claudeCode = agents.find(a => a.id === 'claude-code');

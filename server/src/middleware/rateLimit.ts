@@ -101,7 +101,7 @@ export const loginRateLimit = rateLimit({
   max: 5,
   message: 'Too many login attempts, please try again in 15 minutes',
   keyGenerator: (req) => {
-    const body = req.body as any;
+    const body = req.body as { username?: string };
     return `login:${req.ip}:${body?.username || 'unknown'}`;
   }
 });

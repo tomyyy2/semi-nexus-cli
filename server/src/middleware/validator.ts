@@ -17,7 +17,7 @@ export const validate = (validations: ValidationChain[]) => {
     res.status(400).json({
       error: 'Validation failed',
       details: errors.array().map(e => ({
-        field: (e as any).path || (e as any).param || 'unknown',
+        field: (e as { path?: string; param?: string }).path || (e as { param?: string }).param || 'unknown',
         message: e.msg
       }))
     });

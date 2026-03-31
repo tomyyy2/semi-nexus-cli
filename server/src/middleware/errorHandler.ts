@@ -3,9 +3,9 @@ import { Request, Response, NextFunction } from 'express';
 export class AppError extends Error {
   statusCode: number;
   code: string;
-  details?: any;
+  details?: unknown;
 
-  constructor(message: string, statusCode: number = 500, code: string = 'INTERNAL_ERROR', details?: any) {
+  constructor(message: string, statusCode: number = 500, code: string = 'INTERNAL_ERROR', details?: unknown) {
     super(message);
     this.statusCode = statusCode;
     this.code = code;
@@ -15,7 +15,7 @@ export class AppError extends Error {
 }
 
 export class ValidationError extends AppError {
-  constructor(message: string, details?: any) {
+  constructor(message: string, details?: unknown) {
     super(message, 400, 'VALIDATION_ERROR', details);
   }
 }
@@ -50,9 +50,9 @@ export class RateLimitError extends AppError {
   }
 }
 
-export const errorHandler = (err: Error, req: Request, res: Response, next: NextFunction) => {
+export const errorHandler = (err: Error, req: Request, res: Response, _next: NextFunction) => {
   if (err instanceof AppError) {
-    const response: any = {
+    const response: Record<string, unknown> = {
       error: err.message,
       code: err.code
     };
@@ -70,7 +70,7 @@ export const errorHandler = (err: Error, req: Request, res: Response, next: Next
 
   console.error('Unhandled error:', err);
 
-  const response: any = {
+  const response: Record<string, unknown> = {
     error: 'An unexpected error occurred',
     code: 'INTERNAL_ERROR'
   };
@@ -83,7 +83,7 @@ export const errorHandler = (err: Error, req: Request, res: Response, next: Next
   return res.status(500).json(response);
 };
 
-export const asyncHandler = (fn: (req: Request, res: Response, next: NextFunction) => Promise<any>) => {
+export const asyncHandler = (fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>) => {
   return (req: Request, res: Response, next: NextFunction) => {
     Promise.resolve(fn(req, res, next)).catch(next);
   };

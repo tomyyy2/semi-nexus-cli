@@ -132,7 +132,7 @@ export class SQLiteDatabase implements DatabaseAdapter {
     this.db.close();
   }
 
-  private rowToUser(row: any): User {
+  private rowToUser(row: Record<string, any>): User {
     return {
       id: row.id,
       username: row.username,
@@ -148,7 +148,7 @@ export class SQLiteDatabase implements DatabaseAdapter {
     };
   }
 
-  private rowToApiKey(row: any): ApiKey {
+  private rowToApiKey(row: Record<string, any>): ApiKey {
     return {
       id: row.id,
       userId: row.user_id,
@@ -162,7 +162,7 @@ export class SQLiteDatabase implements DatabaseAdapter {
     };
   }
 
-  private rowToCapability(row: any): Capability {
+  private rowToCapability(row: Record<string, any>): Capability {
     return {
       id: row.id,
       name: row.name,
@@ -184,7 +184,7 @@ export class SQLiteDatabase implements DatabaseAdapter {
     };
   }
 
-  private rowToSubscription(row: any): Subscription {
+  private rowToSubscription(row: Record<string, any>): Subscription {
     return {
       id: row.id,
       userId: row.user_id,
@@ -195,7 +195,7 @@ export class SQLiteDatabase implements DatabaseAdapter {
     };
   }
 
-  private rowToAuditLog(row: any): AuditLog {
+  private rowToAuditLog(row: Record<string, any>): AuditLog {
     return {
       id: row.id,
       userId: row.user_id,
@@ -259,7 +259,7 @@ export class SQLiteDatabase implements DatabaseAdapter {
 
   async updateUser(id: string, updates: Partial<User>): Promise<User | null> {
     const fields: string[] = [];
-    const values: any[] = [];
+    const values: unknown[] = [];
 
     if (updates.passwordHash !== undefined) {
       fields.push('password_hash = ?');
@@ -359,7 +359,7 @@ export class SQLiteDatabase implements DatabaseAdapter {
 
   async updateApiKey(id: string, updates: Partial<ApiKey>): Promise<ApiKey | null> {
     const fields: string[] = [];
-    const values: any[] = [];
+    const values: unknown[] = [];
 
     if (updates.status !== undefined) {
       fields.push('status = ?');
@@ -408,7 +408,7 @@ export class SQLiteDatabase implements DatabaseAdapter {
 
   async getCapabilities(query: CapabilityQuery): Promise<Capability[]> {
     let sql = 'SELECT * FROM capabilities WHERE 1=1';
-    const params: any[] = [];
+    const params: unknown[] = [];
 
     if (query.status) {
       sql += ' AND status = ?';
@@ -482,7 +482,7 @@ export class SQLiteDatabase implements DatabaseAdapter {
 
   async updateCapability(id: string, updates: Partial<Capability>): Promise<Capability | null> {
     const fields: string[] = [];
-    const values: any[] = [];
+    const values: unknown[] = [];
 
     const fieldMappings: Record<string, string> = {
       displayName: 'display_name',
@@ -525,11 +525,11 @@ export class SQLiteDatabase implements DatabaseAdapter {
 
   async getCapabilityVersions(capabilityId: string): Promise<CapabilityVersion[]> {
     const rows = this.db.prepare('SELECT * FROM capability_versions WHERE capability_id = ? ORDER BY released_at DESC').all(capabilityId);
-    return rows.map((row: any) => ({
-      version: row.version,
-      snpFile: row.snp_file,
-      changelog: row.changelog || '',
-      releasedAt: row.released_at
+    return rows.map((row: Record<string, unknown>) => ({
+      version: row.version as string,
+      snpFile: row.snp_file as string,
+      changelog: row.changelog as string | undefined,
+      releasedAt: row.released_at as string
     }));
   }
 
@@ -539,7 +539,7 @@ export class SQLiteDatabase implements DatabaseAdapter {
       INSERT INTO capability_versions (id, capability_id, version, snp_file, changelog, released_at)
       VALUES (?, ?, ?, ?, ?, ?)
     `);
-    stmt.run(id, (version as any).capabilityId, version.version, version.snpFile, version.changelog || null, version.releasedAt);
+    stmt.run(id, (version as { capabilityId?: string }).capabilityId, version.version, version.snpFile, version.changelog || null, version.releasedAt);
     return version;
   }
 
@@ -559,16 +559,16 @@ export class SQLiteDatabase implements DatabaseAdapter {
       WHERE s.user_id = ? AND s.status = 'active'
     `).all(userId);
     
-    return rows.map((row: any) => {
-      const sub = this.rowToSubscription(row);
+    return rows.map((row: Record<string, unknown>) => {
+      const sub = this.rowToSubscription(row as Record<string, any>);
       let capability: Capability | undefined;
       if (row.cap_id) {
         capability = {
-          id: row.cap_id,
-          name: row.cap_name,
-          displayName: row.display_name,
-          description: row.description,
-          type: row.type,
+          id: row.cap_id as string,
+          name: row.cap_name as string,
+          displayName: row.display_name as string,
+          description: row.description as string,
+          type: row.type as string,
           version: '',
           tags: [],
           category: { primary: '', secondary: '' },
@@ -602,7 +602,7 @@ export class SQLiteDatabase implements DatabaseAdapter {
 
   async updateSubscription(id: string, updates: Partial<Subscription>): Promise<Subscription | null> {
     const fields: string[] = [];
-    const values: any[] = [];
+    const values: unknown[] = [];
 
     if (updates.version !== undefined) {
       fields.push('version = ?');
@@ -649,7 +649,7 @@ export class SQLiteDatabase implements DatabaseAdapter {
 
   async getAuditLogs(options: { userId?: string; limit?: number; offset?: number }): Promise<AuditLog[]> {
     let sql = 'SELECT * FROM audit_logs WHERE 1=1';
-    const params: any[] = [];
+    const params: unknown[] = [];
 
     if (options.userId) {
       sql += ' AND user_id = ?';
@@ -686,7 +686,7 @@ export class SQLiteDatabase implements DatabaseAdapter {
       SELECT COUNT(*) as count FROM login_attempts
       WHERE username = ? AND success = 0 AND timestamp > ?
     `).get(username, cutoff);
-    return (row as any)?.count || 0;
+    return (row as { count?: number })?.count || 0;
   }
 
   async clearLoginAttempts(): Promise<void> {

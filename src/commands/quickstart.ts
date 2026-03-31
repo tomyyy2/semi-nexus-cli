@@ -33,8 +33,9 @@ export async function quickstart(): Promise<void> {
     try {
       await client.loginWithApiKey(apiKey);
       console.log(chalk.green('✓ Logged in successfully'));
-    } catch (error: any) {
-      console.log(chalk.red(`✗ Login failed: ${error.message}`));
+    } catch (error: unknown) {
+      const err = error as Error;
+      console.log(chalk.red(`✗ Login failed: ${err.message}`));
       process.exit(1);
     }
   } else {
@@ -44,8 +45,9 @@ export async function quickstart(): Promise<void> {
     try {
       await client.login(credentials.username, credentials.password, credentials.authType);
       console.log(chalk.green('✓ Logged in successfully'));
-    } catch (error: any) {
-      console.log(chalk.red(`✗ Login failed: ${error.message}`));
+    } catch (error: unknown) {
+      const err = error as Error;
+      console.log(chalk.red(`✗ Login failed: ${err.message}`));
       process.exit(1);
     }
   }
@@ -73,8 +75,9 @@ export async function quickstart(): Promise<void> {
         console.log(chalk.gray(`  Installing ${skill.name}...`));
         await installSkill(skill);
         console.log(chalk.green(`  ✓ ${skill.displayName} (${skill.type})`));
-      } catch (error: any) {
-        console.log(chalk.red(`  ✗ ${skill.name}: ${error.message}`));
+      } catch (error: unknown) {
+        const err = error as Error;
+        console.log(chalk.red(`  ✗ ${skill.name}: ${err.message}`));
       }
     }
   }
@@ -199,7 +202,27 @@ async function askInstallRecommended(): Promise<boolean> {
   return answers.install;
 }
 
-async function getRecommendedSkills(): Promise<any[]> {
+interface Capability {
+  id: string;
+  name: string;
+  displayName: string;
+  version: string;
+  type: string;
+  description: string;
+  installPath: string;
+  syncedAgents: string[];
+}
+
+interface AgentInfo {
+  id: string;
+  name: string;
+  detected: boolean;
+  skillPath: string;
+  syncMode: 'symlink' | 'copy';
+  installPath: string;
+}
+
+async function getRecommendedSkills(): Promise<Capability[]> {
   try {
     const results = await client.searchCapabilities('self-improvement');
     return results.slice(0, 2);
@@ -208,7 +231,7 @@ async function getRecommendedSkills(): Promise<any[]> {
   }
 }
 
-async function installSkill(skill: any): Promise<void> {
+async function installSkill(skill: Capability): Promise<void> {
   const installDir = client.getSkillsDir();
   const skillDir = path.join(installDir, skill.name);
   
@@ -253,7 +276,7 @@ ${skill.description}
   });
 }
 
-async function syncToAgent(cap: any, agent: any): Promise<void> {
+async function syncToAgent(cap: Capability, agent: AgentInfo): Promise<void> {
   const targetPath = path.join(agent.skillPath, cap.name);
   const sourcePath = cap.installPath;
   
@@ -286,7 +309,7 @@ async function syncToAgent(cap: any, agent: any): Promise<void> {
   await registry.updateSyncStatus(cap.id, cap.syncedAgents);
 }
 
-function printUsageGuide(agents: any[]): void {
+function printUsageGuide(agents: AgentInfo[]): void {
   console.log(chalk.bold('📚 How to use your capabilities:\n'));
   
   const claudeCode = agents.find(a => a.id === 'claude-code');

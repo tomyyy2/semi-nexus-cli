@@ -22,7 +22,9 @@ export async function install(name: string, options: {
   
   try {
     capability = await client.getCapability(name);
-  } catch {
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.log(chalk.yellow(`⚠ Server request failed: ${err.message}`));
     // Ignore - will try local registry
   }
 
@@ -51,8 +53,9 @@ export async function install(name: string, options: {
           status: 'active'
         });
         console.log(chalk.green('✓ Subscribed automatically'));
-      } catch (error: any) {
-        console.log(chalk.red(`✗ Auto-subscribe failed: ${error.message}`));
+      } catch (error: unknown) {
+        const err = error as Error;
+        console.log(chalk.red(`✗ Auto-subscribe failed: ${err.message}`));
         process.exit(1);
       }
     } else {
@@ -77,8 +80,9 @@ export async function install(name: string, options: {
             status: 'active'
           });
           console.log(chalk.green('✓ Subscribed successfully'));
-        } catch (error: any) {
-          console.log(chalk.red(`✗ Subscription failed: ${error.message}`));
+        } catch (error: unknown) {
+          const err = error as Error;
+          console.log(chalk.red(`✗ Subscription failed: ${err.message}`));
           process.exit(1);
         }
       } else {
@@ -103,12 +107,13 @@ export async function install(name: string, options: {
     await fs.ensureDir(installDir);
     await fs.ensureDir(capInstallDir);
 
-    let packageContent: any = null;
+    let packageContent: Buffer | null = null;
     
     if (client.isAuthenticated()) {
       try {
         packageContent = await client.downloadCapability(capability.id, version);
-      } catch (error) {
+      } catch (error: unknown) {
+        const err = error as Error;
         console.log(chalk.yellow('⚠ Could not download from server, using local cache.'));
       }
     }
@@ -121,8 +126,8 @@ export async function install(name: string, options: {
       type: capability.type,
       description: capability.description,
       installedAt: new Date().toISOString(),
-      author: (capability as any).author?.name || 'Unknown',
-      repository: (capability as any).repository || 'N/A',
+      author: capability.author?.name || 'Unknown',
+      repository: capability.repository || 'N/A',
       tags: capability.tags,
       category: capability.category
     };
@@ -153,10 +158,10 @@ ${version}
 This capability has been installed by SemiNexus CLI.
 
 ## Author
-${(capability as any).author?.name || 'Unknown'}
+${capability.author?.name || 'Unknown'}
 
 ## Repository
-${(capability as any).repository || 'N/A'}
+${capability.repository || 'N/A'}
 
 ## Tags
 ${capability.tags.join(', ')}
@@ -211,8 +216,9 @@ This skill provides capabilities for ${capability.category?.primary || 'general'
     }
     console.log();
 
-  } catch (error: any) {
-    console.log(chalk.red(`\n✗ Installation failed: ${error.message}`));
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.log(chalk.red(`\n✗ Installation failed: ${err.message}`));
     process.exit(1);
   }
 }
@@ -262,8 +268,9 @@ async function syncToAgents(cap: InstalledCapability): Promise<void> {
       
       console.log(chalk.green(`  ✓ ${agent.name}`));
       successCount++;
-    } catch (error: any) {
-      console.log(chalk.red(`  ✗ ${agent.name}: ${error.message}`));
+    } catch (error: unknown) {
+      const err = error as Error;
+      console.log(chalk.red(`  ✗ ${agent.name}: ${err.message}`));
     }
   }
 
@@ -273,7 +280,15 @@ async function syncToAgents(cap: InstalledCapability): Promise<void> {
   }
 }
 
-function printUsageGuide(agents: any[]): void {
+interface AgentInfo {
+  id: string;
+  name: string;
+  detected: boolean;
+  skillPath: string;
+  syncMode: 'symlink' | 'copy';
+}
+
+function printUsageGuide(agents: AgentInfo[]): void {
   console.log(chalk.bold('📚 How to use:\n'));
   
   const claudeCode = agents.find(a => a.id === 'claude-code');

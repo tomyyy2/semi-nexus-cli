@@ -122,7 +122,16 @@ async function findSkillFile(dir: string): Promise<string | null> {
   return null;
 }
 
-function printUsageGuide(agents: any[], skillName: string): void {
+interface AgentInfo {
+  id: string;
+  name: string;
+  detected: boolean;
+  skillPath: string;
+  syncMode: 'symlink' | 'copy';
+  installPath: string;
+}
+
+function printUsageGuide(agents: AgentInfo[], skillName: string): void {
   console.log(chalk.bold('💡 How to use:\n'));
   
   const claudeCode = agents.find(a => a.id === 'claude-code' && a.detected);
