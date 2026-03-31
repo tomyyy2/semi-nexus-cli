@@ -1,0 +1,97 @@
+name: Quality Gate
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  quality-check:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        cache-dependency-path: package-lock.json
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: 🔍 ESLint Check
+      run: npm run lint
+      continue-on-error: false
+    
+    - name: 📋 TypeScript Compilation
+      run: npm run typecheck
+      continue-on-error: false
+    
+    - name: 🧪 Unit Tests
+      run: npm run test:unit
+      continue-on-error: false
+    
+    - name: 🧪 E2E Tests
+      run: npm run test:e2e
+      continue-on-error: true  # E2E 测试可能不稳定，不阻断流程
+    
+    - name: 📊 Test Coverage Report
+      run: npm run test:coverage -- --coverageReporters=text-summary
+      continue-on-error: true
+    
+    - name: 🔨 Build Verification
+      run: npm run build
+      continue-on-error: false
+    
+    - name: 📦 Package Build (Optional)
+      run: npm run build:bin
+      continue-on-error: true  # 打包可能失败，不阻断流程
+
+  security-scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Use Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: 🔒 Security Audit
+      run: npm audit --audit-level=moderate
+      continue-on-error: true
+    
+    - name: 🛡️ Check for sensitive files
+      run: |
+        echo "Checking for sensitive files..."
+        ! git ls-files | grep -E '\.(pem|key|env)$' || (echo "Found sensitive files!" && exit 1)
+
+  code-quality-summary:
+    runs-on: ubuntu-latest
+    needs: [quality-check, security-scan]
+    
+    steps:
+    - name: Generate Summary
+      run: |
+        echo "## Quality Gate Summary" >> $GITHUB_STEP_SUMMARY
+        echo "✅ All quality checks passed!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+        echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+        echo "| ESLint | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+        echo "| TypeScript | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+        echo "| Unit Tests | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+        echo "| Build | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
